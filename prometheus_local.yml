@@ -1,0 +1,57 @@
+# Prometheus Local Configuration
+# Coleta métricas do servidor remoto e armazena localmente
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'local-analysis'
+    replica: 'prometheus-1'
+
+# Rule files for alerting
+rule_files:
+  - "alert_rules.yml"
+  - "use-method-alerts.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus-local'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+
+  # Remote server via HTTP (direct)
+  - job_name: 'remote-server'
+    static_configs:
+      - targets: ['177.93.132.48:9090']
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /federate
+    params:
+      'match[]':
+        - '{__name__=~"node_.*"}'
+        - '{__name__=~"up"}'
+        - '{__name__=~"process_.*"}'
+        - '{__name__=~"scrape_.*"}'
+    honor_labels: true
+
+  # Remote Node Exporter via SSH tunnel (alternative)
+  - job_name: 'remote-node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']  # Via SSH tunnel
+    scrape_interval: 15s
+
+# Remote write configuration (optional - for long-term storage)
+remote_write:
+  - url: "http://localhost:9201/api/v1/write"  # VictoriaMetrics
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 200
+      capacity: 2500
+
+# Storage configuration (via command line flags)
+# retention.time: 30d            # Keep 30 days of data
+# retention.size: 10GB           # Or 10GB max
+# wal-compression: true

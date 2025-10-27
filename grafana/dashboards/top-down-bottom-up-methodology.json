@@ -1,0 +1,586 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Performance Investigation - Top-Down & Bottom-Up Methodology",
+    "description": "Chapter 1: Combined Top-Down (Application Flow) and Bottom-Up (System Resources) Analysis",
+    "tags": ["methodology", "top-down", "bottom-up", "performance-investigation"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "instance",
+          "type": "query",
+          "datasource": "Prometheus-Local",
+          "query": "label_values(up, instance)",
+          "multi": false,
+          "includeAll": false,
+          "refresh": 1
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "🔝 TOP-DOWN ANALYSIS - Application & Request Flow",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "1️⃣ Request Rate & Throughput",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "rate(prometheus_http_requests_total[5m])",
+            "legendFormat": "{{handler}} - {{code}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "fillOpacity": 20,
+              "lineInterpolation": "smooth",
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "mode": "normal",
+                "group": "A"
+              }
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 100},
+                {"color": "red", "value": 500}
+              ]
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "showLegend": true,
+            "calcs": ["mean", "max", "last"]
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "2️⃣ Request Latency Percentiles",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(prometheus_http_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.90, sum(rate(prometheus_http_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p90",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(prometheus_http_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p95",
+            "refId": "C"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(prometheus_http_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p99",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "custom": {
+              "fillOpacity": 10,
+              "lineInterpolation": "smooth",
+              "lineWidth": 2
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.5},
+                {"color": "red", "value": 1}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "3️⃣ Error Rate Analysis",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 9},
+        "targets": [
+          {
+            "expr": "sum(rate(prometheus_http_requests_total{code=~\"5..\"}[5m])) / sum(rate(prometheus_http_requests_total[5m])) * 100",
+            "legendFormat": "Error Rate %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 5}
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 5,
+        "title": "4️⃣ Success Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 9},
+        "targets": [
+          {
+            "expr": "sum(rate(prometheus_http_requests_total{code=~\"2..\"}[5m])) / sum(rate(prometheus_http_requests_total[5m])) * 100",
+            "legendFormat": "Success Rate %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 95},
+                {"color": "green", "value": 99}
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 6,
+        "title": "5️⃣ Queue Depth",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 9},
+        "targets": [
+          {
+            "expr": "prometheus_tsdb_symbol_table_size_bytes{instance=\"$instance\"}",
+            "legendFormat": "Queue Size",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "max": 1000,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 100},
+                {"color": "red", "value": 500}
+              ]
+            }
+          }
+        },
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 7,
+        "title": "6️⃣ Active Connections",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 9},
+        "targets": [
+          {
+            "expr": "node_netstat_Tcp_CurrEstab{instance=\"$instance\"}",
+            "legendFormat": "TCP Connections",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 1000},
+                {"color": "red", "value": 5000}
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 10,
+        "title": "🔼 BOTTOM-UP ANALYSIS - System Resources",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13}
+      },
+      {
+        "id": 11,
+        "title": "🖥️ CPU Analysis - User/System/Wait Breakdown",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "avg(rate(node_cpu_seconds_total{instance=\"$instance\",mode!=\"idle\"}[5m])) by (mode) * 100",
+            "legendFormat": "{{mode}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "max": 100,
+            "custom": {
+              "fillOpacity": 40,
+              "lineInterpolation": "smooth",
+              "stacking": {
+                "mode": "normal",
+                "group": "A"
+              }
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "🧠 Memory Analysis - Physical & Virtual",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "(node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "Memory Used %",
+            "refId": "A"
+          },
+          {
+            "expr": "(node_memory_SwapTotal_bytes{instance=\"$instance\"} - node_memory_SwapFree_bytes{instance=\"$instance\"}) / node_memory_SwapTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "Swap Used %",
+            "refId": "B"
+          },
+          {
+            "expr": "node_memory_Cached_bytes{instance=\"$instance\"} / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "Cache %",
+            "refId": "C"
+          },
+          {
+            "expr": "node_memory_Buffers_bytes{instance=\"$instance\"} / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "Buffers %",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "max": 100,
+            "custom": {
+              "fillOpacity": 20,
+              "lineInterpolation": "smooth"
+            }
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "💾 Disk I/O Analysis - Utilization & Queue",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
+        "targets": [
+          {
+            "expr": "rate(node_disk_io_time_seconds_total{instance=\"$instance\"}[5m]) * 100",
+            "legendFormat": "{{device}} Utilization %",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_disk_io_time_weighted_seconds_total{instance=\"$instance\"}[5m])",
+            "legendFormat": "{{device}} Queue Depth",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "custom": {
+              "fillOpacity": 30,
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "axisPlacement": "auto"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byRegexp",
+                "options": ".*Queue.*"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 14,
+        "title": "🌐 Network Analysis - Throughput & Errors",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_bytes_total{instance=\"$instance\",device!~\"lo|docker.*\"}[5m])",
+            "legendFormat": "{{device}} RX",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_network_transmit_bytes_total{instance=\"$instance\",device!~\"lo|docker.*\"}[5m])",
+            "legendFormat": "{{device}} TX",
+            "refId": "B"
+          },
+          {
+            "expr": "(rate(node_network_receive_errs_total{instance=\"$instance\"}[5m]) + rate(node_network_transmit_errs_total{instance=\"$instance\"}[5m])) * 100",
+            "legendFormat": "{{device}} Errors",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "binBps",
+            "custom": {
+              "fillOpacity": 20
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byRegexp",
+                "options": ".*Errors.*"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 20,
+        "title": "🔄 CORRELATION - Linking Top-Down & Bottom-Up",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 30}
+      },
+      {
+        "id": 21,
+        "title": "Request Latency vs Resource Utilization",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 31},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(prometheus_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "Request p95 (ms)",
+            "refId": "A"
+          },
+          {
+            "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)",
+            "legendFormat": "CPU Usage %",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "fillOpacity": 10,
+              "lineInterpolation": "smooth",
+              "axisPlacement": "left"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "CPU Usage %"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 22,
+        "title": "Throughput vs Memory Pressure",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 31},
+        "targets": [
+          {
+            "expr": "sum(rate(prometheus_http_requests_total[5m]))",
+            "legendFormat": "Requests/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "(node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "Memory Usage %",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "fillOpacity": 10,
+              "axisPlacement": "left"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Memory Usage %"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 23,
+        "title": "📊 Performance Summary - Combined View",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 24, "x": 0, "y": 39},
+        "targets": [
+          {
+            "expr": "sum(rate(prometheus_http_requests_total[5m]))",
+            "legendFormat": "Requests/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(prometheus_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "p95 Latency (ms)",
+            "refId": "B"
+          },
+          {
+            "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)",
+            "legendFormat": "CPU %",
+            "refId": "C"
+          },
+          {
+            "expr": "(node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "Memory %",
+            "refId": "D"
+          },
+          {
+            "expr": "max(rate(node_disk_io_time_seconds_total{instance=\"$instance\"}[5m])) * 100",
+            "legendFormat": "Disk I/O %",
+            "refId": "E"
+          },
+          {
+            "expr": "sum(rate(prometheus_http_requests_total{code=~\"5..\"}[5m])) / sum(rate(prometheus_http_requests_total[5m])) * 100",
+            "legendFormat": "Error %",
+            "refId": "F"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0}
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Requests/sec"},
+              "properties": [{"id": "unit", "value": "reqps"}]
+            },
+            {
+              "matcher": {"id": "byName", "options": "p95 Latency (ms)"},
+              "properties": [{"id": "unit", "value": "ms"}]
+            },
+            {
+              "matcher": {"id": "byRegexp", "options": ".*%"},
+              "properties": [{"id": "unit", "value": "percent"}]
+            }
+          ]
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "center"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,673 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Observability - Three Pillars Dashboard",
+    "description": "Based on Systems Performance Chapter 1: Counters, Profiling, and Tracing",
+    "tags": ["observability", "brendan-gregg", "three-pillars", "performance"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "instance",
+          "type": "query",
+          "datasource": "Prometheus-Local",
+          "query": "label_values(up, instance)",
+          "multi": false,
+          "includeAll": false,
+          "refresh": 1,
+          "current": {
+            "selected": true,
+            "text": "${instance}",
+            "value": "${instance}"
+          }
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Performance Events",
+          "datasource": "Prometheus-Local",
+          "enable": true,
+          "query": "ALERTS{alertstate=\"firing\"}",
+          "iconColor": "red",
+          "step": "10s"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "🎯 Performance Overview - Checklist de 60 Segundos",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "1. Uptime & System Health",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "node_boot_time_seconds{instance=\"$instance\"}",
+            "legendFormat": "Boot Time",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "dateTimeFromNow",
+            "mappings": [],
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null}
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "text": {
+            "titleSize": 12,
+            "valueSize": 20
+          },
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "2. Load Average (1/5/15 min)",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+        "targets": [
+          {
+            "expr": "node_load1{instance=\"$instance\"}",
+            "legendFormat": "1min",
+            "refId": "A"
+          },
+          {
+            "expr": "node_load5{instance=\"$instance\"}",
+            "legendFormat": "5min",
+            "refId": "B"
+          },
+          {
+            "expr": "node_load15{instance=\"$instance\"}",
+            "legendFormat": "15min",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "max": 8,
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 2},
+                {"color": "red", "value": 4}
+              ]
+            }
+          }
+        },
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 4,
+        "title": "3. CPU Pressure",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+        "targets": [
+          {
+            "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)",
+            "legendFormat": "CPU Usage",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 5,
+        "title": "4. Memory Pressure",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "(node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "Memory Used",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 85}
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 6,
+        "title": "5. Disk I/O Pressure",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
+        "targets": [
+          {
+            "expr": "rate(node_disk_io_time_seconds_total{instance=\"$instance\"}[5m]) * 100",
+            "legendFormat": "{{device}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 50},
+                {"color": "red", "value": 80}
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 7,
+        "title": "6. Network Errors",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 20, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(node_network_receive_errs_total{instance=\"$instance\"}[5m])) + sum(rate(node_network_transmit_errs_total{instance=\"$instance\"}[5m]))",
+            "legendFormat": "Errors/sec",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "errors/sec",
+            "decimals": 2,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.1},
+                {"color": "red", "value": 1}
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none"
+        }
+      },
+      {
+        "id": 10,
+        "title": "📊 Pilar 1: Contadores (Counters) - Métricas Agregadas",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5}
+      },
+      {
+        "id": 11,
+        "title": "CPU Counters - Time by State",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+        "targets": [
+          {
+            "expr": "avg(rate(node_cpu_seconds_total{instance=\"$instance\",mode=\"user\"}[5m])) * 100",
+            "legendFormat": "User",
+            "refId": "A"
+          },
+          {
+            "expr": "avg(rate(node_cpu_seconds_total{instance=\"$instance\",mode=\"system\"}[5m])) * 100",
+            "legendFormat": "System", 
+            "refId": "B"
+          },
+          {
+            "expr": "avg(rate(node_cpu_seconds_total{instance=\"$instance\",mode=\"iowait\"}[5m])) * 100",
+            "legendFormat": "I/O Wait",
+            "refId": "C"
+          },
+          {
+            "expr": "avg(rate(node_cpu_seconds_total{instance=\"$instance\",mode=\"steal\"}[5m])) * 100",
+            "legendFormat": "Steal",
+            "refId": "D"
+          },
+          {
+            "expr": "avg(rate(node_cpu_seconds_total{instance=\"$instance\",mode=\"idle\"}[5m])) * 100",
+            "legendFormat": "Idle",
+            "refId": "E"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0}
+              ]
+            },
+            "custom": {
+              "fillOpacity": 30,
+              "lineInterpolation": "smooth",
+              "spanNulls": false
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "showLegend": true,
+            "calcs": ["mean", "last"]
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "desc"
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "Memory Counters - Usage Breakdown",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+        "targets": [
+          {
+            "expr": "node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}",
+            "legendFormat": "Used",
+            "refId": "A"
+          },
+          {
+            "expr": "node_memory_Buffers_bytes{instance=\"$instance\"}",
+            "legendFormat": "Buffers",
+            "refId": "B"
+          },
+          {
+            "expr": "node_memory_Cached_bytes{instance=\"$instance\"}",
+            "legendFormat": "Cached",
+            "refId": "C"
+          },
+          {
+            "expr": "node_memory_MemFree_bytes{instance=\"$instance\"}",
+            "legendFormat": "Free",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes"
+          }
+        },
+        "options": {
+          "pieType": "donut",
+          "displayLabels": ["name", "percent"],
+          "legendDisplayMode": "table",
+          "legendPlacement": "right",
+          "legendShowLegend": true,
+          "legendValues": ["value", "percent"]
+        }
+      },
+      {
+        "id": 13,
+        "title": "Network Counters - Throughput",
+        "type": "timeseries", 
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(rate(node_network_receive_bytes_total{instance=\"$instance\",device!~\"lo|docker.*|veth.*\"}[5m]))",
+            "legendFormat": "Receive",
+            "refId": "A"
+          },
+          {
+            "expr": "-sum(rate(node_network_transmit_bytes_total{instance=\"$instance\",device!~\"lo|docker.*|veth.*\"}[5m]))",
+            "legendFormat": "Transmit",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "binBps",
+            "custom": {
+              "fillOpacity": 30,
+              "gradientMode": "opacity",
+              "lineInterpolation": "smooth"
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": ["mean", "max"]
+          }
+        }
+      },
+      {
+        "id": 14,
+        "title": "Disk I/O Counters - Operations",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "rate(node_disk_reads_completed_total{instance=\"$instance\"}[5m])",
+            "legendFormat": "{{device}} - Reads",
+            "refId": "A"
+          },
+          {
+            "expr": "-rate(node_disk_writes_completed_total{instance=\"$instance\"}[5m])",
+            "legendFormat": "{{device}} - Writes",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "iops",
+            "custom": {
+              "fillOpacity": 30,
+              "lineInterpolation": "smooth"
+            }
+          }
+        }
+      },
+      {
+        "id": 20,
+        "title": "🔍 Pilar 2: Profiling - Onde o Tempo é Gasto",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 22}
+      },
+      {
+        "id": 21,
+        "title": "CPU Time Profile - Where Time is Spent",
+        "type": "heatmap",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 23},
+        "targets": [
+          {
+            "expr": "sum(increase(node_schedstat_running_seconds_total{instance=\"$instance\"}[1m])) by (cpu)",
+            "format": "heatmap",
+            "legendFormat": "CPU {{cpu}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "scaleDistribution": {
+                "type": "linear"
+              }
+            }
+          }
+        },
+        "options": {
+          "calculate": false,
+          "cellGap": 1,
+          "cellValues": {
+            "unit": "seconds"
+          },
+          "color": {
+            "mode": "scheme",
+            "scheme": "Turbo"
+          },
+          "exemplars": {
+            "color": "rgba(255,0,255,0.7)"
+          },
+          "filterValues": {
+            "le": 1e-9
+          },
+          "rowsFrame": {
+            "layout": "auto"
+          },
+          "showValue": "never",
+          "yAxis": {
+            "unit": "short",
+            "reverse": false
+          }
+        }
+      },
+      {
+        "id": 22,
+        "title": "Context Switches Profile",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 23},
+        "targets": [
+          {
+            "expr": "rate(node_context_switches_total{instance=\"$instance\"}[5m])",
+            "legendFormat": "Context Switches/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_intr_total{instance=\"$instance\"}[5m])",
+            "legendFormat": "Interrupts/sec",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "fillOpacity": 20,
+              "gradientMode": "hue"
+            }
+          }
+        }
+      },
+      {
+        "id": 23,
+        "title": "Process State Distribution",
+        "type": "bargauge",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 31},
+        "targets": [
+          {
+            "expr": "node_procs_running{instance=\"$instance\"}",
+            "legendFormat": "Running",
+            "refId": "A"
+          },
+          {
+            "expr": "node_procs_blocked{instance=\"$instance\"}",
+            "legendFormat": "Blocked",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 5},
+                {"color": "red", "value": 10}
+              ]
+            }
+          }
+        },
+        "options": {
+          "displayMode": "basic",
+          "orientation": "horizontal",
+          "showUnfilled": true
+        }
+      },
+      {
+        "id": 24,
+        "title": "System Call Profile - Top Operations",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 31},
+        "targets": [
+          {
+            "expr": "topk(10, rate(node_schedstat_running_seconds_total{instance=\"$instance\"}[5m]))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              }
+            }
+          }
+        },
+        "options": {
+          "showHeader": true,
+          "sortBy": [
+            {
+              "desc": true,
+              "displayName": "Value"
+            }
+          ]
+        }
+      },
+      {
+        "id": 30,
+        "title": "📍 Pilar 3: Tracing - Rastreamento de Eventos",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 39}
+      },
+      {
+        "id": 31,
+        "title": "Request Latency Distribution",
+        "type": "histogram",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(node_disk_read_time_seconds_total{instance=\"$instance\"}[5m])) by (device, le))",
+            "legendFormat": "p95 {{device}}",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(node_disk_read_time_seconds_total{instance=\"$instance\"}[5m])) by (device, le))",
+            "legendFormat": "p99 {{device}}",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "custom": {
+              "lineWidth": 2
+            }
+          }
+        }
+      },
+      {
+        "id": 32,
+        "title": "Event Flow Timeline",
+        "type": "state-timeline",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+        "targets": [
+          {
+            "expr": "changes(node_boot_time_seconds{instance=\"$instance\"}[5m])",
+            "legendFormat": "System Events",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "fillOpacity": 70,
+              "lineWidth": 0
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "color": "green",
+                    "index": 0,
+                    "text": "Normal"
+                  },
+                  "1": {
+                    "color": "red",
+                    "index": 1,
+                    "text": "Event"
+                  }
+                },
+                "type": "value"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 33,
+        "title": "I/O Request Trace",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 48},
+        "targets": [
+          {
+            "expr": "rate(node_disk_io_time_weighted_seconds_total{instance=\"$instance\"}[5m])",
+            "legendFormat": "{{device}} - Queue Time",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "custom": {
+              "drawStyle": "points",
+              "pointSize": 5,
+              "spanNulls": false,
+              "lineInterpolation": "stepAfter"
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right"
+          }
+        }
+      }
+    ]
+  }
+}

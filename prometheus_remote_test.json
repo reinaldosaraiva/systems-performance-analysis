@@ -1,0 +1,42 @@
+{
+  "timestamp": "2025-10-27T18:59:02.620149",
+  "prometheus_url": "http://177.93.132.48:9090",
+  "metrics": {
+    "load1": 3.94,
+    "load5": 4.38,
+    "load15": 3.92,
+    "cpu_util": 39.12500000093132,
+    "memory_total": 33653985280.0,
+    "memory_available": 28408135680.0,
+    "memory_used": 5245849600.0,
+    "swap_total": 0.0,
+    "swap_free": 0.0,
+    "disk_root_total": 154894188544.0,
+    "disk_root_free": 113614974976.0,
+    "network_receive": 39.0,
+    "network_transmit": 0.0,
+    "boot_time": 1759595555.0,
+    "uptime": 2006787.6040000916
+  },
+  "analysis": {
+    "cpu": {
+      "utilization": 39.12500000093132,
+      "load1": 3.94,
+      "status": "WARNING"
+    },
+    "memory": {
+      "utilization": 15.587602943172143,
+      "swap_utilization": 0,
+      "status": "OK"
+    },
+    "disk": {
+      "utilization": 26.649943394276555,
+      "status": "OK"
+    },
+    "network": {
+      "receive_mbps": 0.000312,
+      "transmit_mbps": 0.0,
+      "status": "OK"
+    }
+  }
+}

@@ -1,0 +1,280 @@
+groups:
+  - name: queuing_theory_alerts
+    interval: 30s
+    rules:
+      # CPU Queue Saturation - Based on Queuing Theory
+      - alert: CPUQueueSaturation
+        expr: |
+          (node_load1 / count(node_cpu_seconds_total{mode="idle"}) > 1.5)
+          and
+          (rate(node_schedstat_waiting_seconds_total[5m]) > 0.1)
+        for: 5m
+        labels:
+          severity: warning
+          theory: queuing_theory
+          scale: seconds
+        annotations:
+          summary: "CPU queue saturation detected ({{ $labels.instance }})"
+          description: |
+            Load average ({{ $value }}) significantly exceeds CPU count.
+            This indicates queue buildup per Chapter 2 queuing theory.
+            Response times likely experiencing exponential growth.
+            
+            Current Load: {{ with query "node_load1{instance='" + $labels.instance + "'}" }}{{ . | first | value | printf "%.2f" }}{{ end }}
+            CPU Count: {{ with query "count(node_cpu_seconds_total{mode='idle',instance='" + $labels.instance + "'})" }}{{ . | first | value }}{{ end }}
+          dashboard: "http://grafana:3000/d/systematic-investigation-methodology"
+
+      # Memory Pressure - Page Fault Rate Increase
+      - alert: MemoryPressurePageFaults
+        expr: |
+          (rate(node_vmstat_pgmajfault[5m]) > 10)
+          and
+          ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.85)
+        for: 5m
+        labels:
+          severity: critical
+          theory: memory_hierarchy
+          scale: microseconds
+        annotations:
+          summary: "High memory pressure with major page faults ({{ $labels.instance }})"
+          description: |
+            Major page faults rate: {{ $value | printf "%.2f" }}/sec
+            Memory utilization exceeds 85% causing disk I/O for memory pages.
+            This creates cascading latency per Chapter 3 memory management.
+            
+            Page Fault Rate: {{ $value | printf "%.2f" }}/sec
+            Memory Used: {{ with query "(1 - node_memory_MemAvailable_bytes{instance='" + $labels.instance + "'} / node_memory_MemTotal_bytes{instance='" + $labels.instance + "'}) * 100" }}{{ . | first | value | printf "%.1f" }}{{ end }}%
+
+      # Disk I/O Queue Depth - Little's Law Application
+      - alert: DiskIOQueueDepth
+        expr: |
+          (rate(node_disk_io_time_weighted_seconds_total[5m]) > 1)
+          and
+          (rate(node_disk_io_time_seconds_total[5m]) > 0.8)
+        for: 3m
+        labels:
+          severity: warning
+          theory: littles_law
+          scale: milliseconds
+        annotations:
+          summary: "Disk I/O queue depth high ({{ $labels.instance }}, {{ $labels.device }})"
+          description: |
+            Disk {{ $labels.device }} queue depth: {{ $value | printf "%.2f" }}
+            
+            Per Little's Law: L = λ × W
+            Where L = queue length, λ = arrival rate, W = wait time
+            High queue depth indicates saturation point reached.
+            
+            Device: {{ $labels.device }}
+            Queue Depth: {{ $value | printf "%.2f" }}
+            Utilization: {{ with query "rate(node_disk_io_time_seconds_total{instance='" + $labels.instance + "',device='" + $labels.device + "'}[5m]) * 100" }}{{ . | first | value | printf "%.1f" }}{{ end }}%
+
+      # Context Switch Storm - Microsecond Scale
+      - alert: ContextSwitchStorm
+        expr: |
+          (rate(node_context_switches_total[1m]) > 50000)
+          and
+          (rate(node_context_switches_total[1m]) / rate(node_context_switches_total[5m]) > 2)
+        for: 2m
+        labels:
+          severity: warning
+          theory: cpu_scheduling
+          scale: microseconds
+        annotations:
+          summary: "Context switch storm detected ({{ $labels.instance }})"
+          description: |
+            Context switches: {{ $value | printf "%.0f" }}/sec
+            
+            Excessive context switching indicates:
+            - Lock contention (check futex calls)
+            - Too many active threads
+            - Scheduler thrashing
+            
+            This operates at microsecond scale per Chapter 3.
+            Current Rate: {{ $value | printf "%.0f" }}/sec
+            Baseline Rate: {{ with query "rate(node_context_switches_total{instance='" + $labels.instance + "'}[5m])" }}{{ . | first | value | printf "%.0f" }}{{ end }}/sec
+
+      # Network Queue Drops - Queue Theory Overflow
+      - alert: NetworkQueueDrops
+        expr: |
+          (rate(node_network_receive_drop_total[5m]) + rate(node_network_transmit_drop_total[5m]) > 0)
+          and
+          (rate(node_network_receive_bytes_total[5m]) > 100000000)
+        for: 3m
+        labels:
+          severity: warning
+          theory: network_queuing
+          scale: microseconds
+        annotations:
+          summary: "Network queue drops detected ({{ $labels.instance }}, {{ $labels.device }})"
+          description: |
+            Network drops on {{ $labels.device }}: {{ $value | printf "%.2f" }}/sec
+            
+            Drops indicate queue overflow at network interface.
+            Per queuing theory, this means arrival rate > service rate.
+            
+            Interface: {{ $labels.device }}
+            Drop Rate: {{ $value | printf "%.2f" }}/sec
+            Throughput: {{ with query "rate(node_network_receive_bytes_total{instance='" + $labels.instance + "',device='" + $labels.device + "'}[5m])" }}{{ . | first | value | humanize }}{{ end }}/sec
+
+      # Response Time Degradation - Exponential Growth Detection
+      - alert: ResponseTimeDegradation
+        expr: |
+          (histogram_quantile(0.95, sum(rate(prometheus_http_request_duration_seconds_bucket[5m])) by (le)) > 0.5)
+          and
+          (histogram_quantile(0.95, sum(rate(prometheus_http_request_duration_seconds_bucket[1m])) by (le)) / 
+           histogram_quantile(0.95, sum(rate(prometheus_http_request_duration_seconds_bucket[5m])) by (le)) > 1.5)
+        for: 3m
+        labels:
+          severity: critical
+          theory: response_curve
+          scale: milliseconds
+        annotations:
+          summary: "Response time experiencing exponential growth"
+          description: |
+            P95 latency: {{ $value | printf "%.3f" }}s
+            
+            Response time growing exponentially indicates system near saturation.
+            Per Chapter 2, this follows classic queuing theory response curve.
+            
+            Current P95: {{ $value | printf "%.3f" }}s
+            Rate of increase: >50% in last minute
+            Action: Reduce load or scale resources immediately
+
+      # Multi-Scale Anomaly - Different Time Scales
+      - alert: MultiScaleAnomaly
+        expr: |
+          (
+            (stddev_over_time(rate(node_cpu_seconds_total{mode!="idle"}[1m])[10m:1m]) > 0.1)
+            or
+            (stddev_over_time(rate(node_disk_io_time_seconds_total[1m])[10m:1m]) > 0.2)
+            or
+            (stddev_over_time(node_load1[10m:1m]) > 1)
+          )
+        for: 5m
+        labels:
+          severity: info
+          theory: time_scales
+          scale: multi
+        annotations:
+          summary: "Performance anomaly detected across time scales ({{ $labels.instance }})"
+          description: |
+            High variance detected in system metrics across different time scales.
+            
+            This indicates:
+            - Intermittent performance issues
+            - Bursty workload patterns
+            - Potential garbage collection or cron impacts
+            
+            Per Chapter 2, investigate at multiple time scales:
+            - Microseconds: CPU scheduling
+            - Milliseconds: I/O operations
+            - Seconds: Application behavior
+            - Minutes: System patterns
+
+  - name: use_method_enhanced_alerts
+    interval: 30s
+    rules:
+      # USE Method - CPU Saturation with Queue Analysis
+      - alert: USECPUSaturation
+        expr: |
+          (
+            (node_load1 / count(node_cpu_seconds_total{mode="idle"}) > 2)
+            and
+            (100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80)
+          )
+        for: 5m
+        labels:
+          severity: warning
+          method: use
+          component: cpu
+          dimension: saturation
+        annotations:
+          summary: "CPU Saturation detected (USE Method)"
+          description: |
+            CPU showing saturation symptoms:
+            - Load/CPU ratio: {{ $value | printf "%.2f" }}
+            - CPU Utilization: {{ with query "100 - (avg(rate(node_cpu_seconds_total{mode='idle',instance='" + $labels.instance + "'}[5m])) * 100)" }}{{ . | first | value | printf "%.1f" }}{{ end }}%
+            
+            Per USE Method: High utilization + queue buildup = saturation
+
+      # USE Method - Memory Errors
+      - alert: USEMemoryErrors
+        expr: |
+          (rate(node_edac_correctable_errors_total[5m]) > 0)
+          or
+          (rate(node_edac_uncorrectable_errors_total[5m]) > 0)
+          or
+          (node_memory_HardwareCorrupted_bytes > 0)
+        for: 1m
+        labels:
+          severity: critical
+          method: use
+          component: memory
+          dimension: errors
+        annotations:
+          summary: "Memory hardware errors detected (USE Method)"
+          description: |
+            Memory showing hardware errors:
+            {{ if $labels.edac_mc }}
+            - Memory Controller: {{ $labels.edac_mc }}
+            {{ end }}
+            - Error Rate: {{ $value | printf "%.2f" }}/sec
+            
+            Per USE Method: Any hardware errors are critical.
+            Action: Check hardware health immediately.
+
+      # USE Method - Disk Saturation
+      - alert: USEDiskSaturation
+        expr: |
+          (
+            (rate(node_disk_io_time_seconds_total[5m]) > 0.9)
+            and
+            (rate(node_disk_io_time_weighted_seconds_total[5m]) > 2)
+          )
+        for: 5m
+        labels:
+          severity: warning
+          method: use
+          component: disk
+          dimension: saturation
+        annotations:
+          summary: "Disk Saturation detected (USE Method)"
+          description: |
+            Disk {{ $labels.device }} showing saturation:
+            - Utilization: {{ with query "rate(node_disk_io_time_seconds_total{instance='" + $labels.instance + "',device='" + $labels.device + "'}[5m]) * 100" }}{{ . | first | value | printf "%.1f" }}{{ end }}%
+            - Queue Depth: {{ with query "rate(node_disk_io_time_weighted_seconds_total{instance='" + $labels.instance + "',device='" + $labels.device + "'}[5m])" }}{{ . | first | value | printf "%.2f" }}{{ end }}
+            
+            Per USE Method: >90% utilization + high queue = saturation
+
+      # USE Method - Network Errors
+      - alert: USENetworkErrors
+        expr: |
+          (
+            (rate(node_network_receive_errs_total[5m]) > 0.01)
+            or
+            (rate(node_network_transmit_errs_total[5m]) > 0.01)
+            or
+            (rate(node_network_receive_drop_total[5m]) > 0.01)
+            or
+            (rate(node_network_transmit_drop_total[5m]) > 0.01)
+          )
+        for: 3m
+        labels:
+          severity: warning
+          method: use
+          component: network
+          dimension: errors
+        annotations:
+          summary: "Network errors detected (USE Method)"
+          description: |
+            Network interface {{ $labels.device }} showing errors:
+            - Error Rate: {{ $value | printf "%.3f" }}/sec
+            - Interface: {{ $labels.device }}
+            
+            Per USE Method: Network errors indicate:
+            - Hardware issues
+            - Driver problems
+            - Configuration errors
+            
+            Check interface statistics and logs.

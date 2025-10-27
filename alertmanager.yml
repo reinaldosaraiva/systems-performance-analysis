@@ -1,0 +1,176 @@
+# AlertManager Configuration
+# Configuração de notificações e roteamento de alertas
+
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@systems-performance.local'
+  smtp_require_tls: false
+
+# Templates para mensagens
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Roteamento de alertas
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default-receiver'
+  routes:
+    # Alertas críticos vão para webhook imediato
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 5s
+      repeat_interval: 5m
+      
+    # Alertas de CPU/Memory
+    - match:
+        component: cpu|memory
+      receiver: 'performance-alerts'
+      
+    # Alertas de disco
+    - match:
+        component: disk
+      receiver: 'disk-alerts'
+      
+    # Alertas de rede
+    - match:
+        component: network
+      receiver: 'network-alerts'
+
+# Receivers (destinos das notificações)
+receivers:
+  # Receiver padrão
+  - name: 'default-receiver'
+    email_configs:
+      - to: 'admin@systems-performance.local'
+        headers:
+          Subject: '[Systems Performance] {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>Systems Performance Alert</h3>
+          {{ range .Alerts }}
+          <p><strong>Alerta:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Descrição:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Severidade:</strong> {{ .Labels.severity }}</p>
+          <p><strong>Componente:</strong> {{ .Labels.component }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance }}</p>
+          <p><strong>Timestamp:</strong> {{ .StartsAt }}</p>
+          <hr>
+          {{ end }}
+          
+    # Webhook para integração com Slack/Teams
+    webhook_configs:
+      - url: 'http://localhost:8080/webhook'
+        send_resolved: true
+        http_config:
+          basic_auth:
+            username: 'webhook'
+            password: 'webhook123'
+
+  # Receiver para alertas críticos
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'critical@systems-performance.local'
+        headers:
+          Subject: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>🚨 ALERTA CRÍTICO 🚨</h2>
+          {{ range .Alerts }}
+          <p><strong>Sistema:</strong> {{ .Labels.instance }}</p>
+          <p><strong>Alerta:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Detalhes:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Runbook:</strong> {{ .Annotations.runbook }}</p>
+          <p><strong>Ação Imediata Necessária!</strong></p>
+          <hr>
+          {{ end }}
+          
+    # Slack webhook
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts-critical'
+        title: '🚨 Critical Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *System:* {{ .Labels.instance }}
+          *Details:* {{ .Annotations.description }}
+          {{ end }}
+        send_resolved: true
+
+  # Receiver para alertas de performance
+  - name: 'performance-alerts'
+    email_configs:
+      - to: 'performance@systems-performance.local'
+        headers:
+          Subject: '⚡ Performance Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>⚡ Alerta de Performance Detectado</h3>
+          {{ range .Alerts }}
+          <p><strong>Componente:</strong> {{ .Labels.component }}</p>
+          <p><strong>Sistema:</strong> {{ .Labels.instance }}</p>
+          <p><strong>Métrica:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Análise:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Recomendações:</strong></p>
+          <ul>
+            <li>Verificar processos em execução</li>
+            <li>Analisar tendências de consumo</li>
+            <li>Considerar otimização ou scaling</li>
+          </ul>
+          <hr>
+          {{ end }}
+
+  # Receiver para alertas de disco
+  - name: 'disk-alerts'
+    email_configs:
+      - to: 'storage@systems-performance.local'
+        headers:
+          Subject: '💾 Disk Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>💾 Alerta de Armazenamento</h3>
+          {{ range .Alerts }}
+          <p><strong>Sistema:</strong> {{ .Labels.instance }}</p>
+          <p><strong>Ponto de Montagem:</strong> {{ .Labels.mountpoint }}</p>
+          <p><strong>Status:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Detalhes:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Ações Recomendadas:</strong></p>
+          <ul>
+            <li>Limpar arquivos temporários</li>
+            <li>Mover logs para storage externo</li>
+            <li>Analisar crescimento de dados</li>
+          </ul>
+          <hr>
+          {{ end }}
+
+  # Receiver para alertas de rede
+  - name: 'network-alerts'
+    email_configs:
+      - to: 'network@systems-performance.local'
+        headers:
+          Subject: '🌐 Network Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h3>🌐 Alerta de Rede</h3>
+          {{ range .Alerts }}
+          <p><strong>Sistema:</strong> {{ .Labels.instance }}</p>
+          <p><strong>Interface:</strong> {{ .Labels.device }}</p>
+          <p><strong>Problema:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Detalhes:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Diagnóstico:</strong></p>
+          <ul>
+            <li>Verificar cabos e equipamentos</li>
+            <li>Analisar configurações de rede</li>
+            <li>Monitorar padrões de tráfego</li>
+          </ul>
+          <hr>
+          {{ end }}
+
+# Inibeções (para evitar alertas em cascata)
+inhibit_rules:
+  # Inibe outros alertas se o sistema estiver down
+  - source_match:
+      alertname: 'SystemDown'
+    target_match_re:
+      alertname: '(High|Critical).*'
+    equal: ['instance']
+

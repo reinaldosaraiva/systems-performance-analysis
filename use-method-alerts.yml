@@ -1,0 +1,190 @@
+groups:
+  - name: USE-Method-CPU
+    rules:
+      - alert: CPUHighUtilization
+        expr: 100 - avg by(instance)(irate(node_cpu_seconds_total{mode="idle"}[5m]) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: cpu
+          use_method: utilization
+        annotations:
+          summary: "CPU utilization high on {{ $labels.instance }}"
+          description: "CPU utilization is {{ $value }}% (>80%). Consider scaling up or optimizing CPU-intensive processes."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-cpu"
+
+      - alert: CPUSaturation
+        expr: node_load1 / count by(instance)(node_cpu_seconds_total{mode="idle"}) * 100 > 20
+        for: 5m
+        labels:
+          severity: warning
+          component: cpu
+          use_method: saturation
+        annotations:
+          summary: "CPU saturation on {{ $labels.instance }}"
+          description: "Load average per CPU is {{ $value }}% (>20%). System is overloaded."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-cpu"
+
+      - alert: CPUStealHigh
+        expr: avg by(instance)(irate(node_cpu_seconds_total{mode="steal"}[5m]) * 100) > 10
+        for: 5m
+        labels:
+          severity: critical
+          component: cpu
+          use_method: errors
+        annotations:
+          summary: "CPU steal time high on {{ $labels.instance }}"
+          description: "CPU steal time is {{ $value }}% (>10%). Virtualization contention detected."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-cpu"
+
+  - name: USE-Method-Memory
+    rules:
+      - alert: MemoryHighUtilization
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: memory
+          use_method: utilization
+        annotations:
+          summary: "Memory utilization high on {{ $labels.instance }}"
+          description: "Memory utilization is {{ $value }}% (>85%). Risk of OOM."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-memory"
+
+      - alert: MemorySaturation
+        expr: (1 - (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes)) * 100 > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: memory
+          use_method: saturation
+        annotations:
+          summary: "Memory saturation (swap usage) on {{ $labels.instance }}"
+          description: "Swap utilization is {{ $value }}% (>10%). Performance degradation."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-memory"
+
+      - alert: OOMKillsDetected
+        expr: increase(node_vmstat_oom_kill[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: memory
+          use_method: errors
+        annotations:
+          summary: "OOM kills detected on {{ $labels.instance }}"
+          description: "{{ $value }} OOM kills in last 5 minutes. System out of memory."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-memory"
+
+  - name: USE-Method-Disk
+    rules:
+      - alert: DiskHighUtilization
+        expr: (1 - (node_filesystem_free_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 70
+        for: 5m
+        labels:
+          severity: warning
+          component: disk
+          use_method: utilization
+        annotations:
+          summary: "Disk utilization high on {{ $labels.instance }}"
+          description: "Disk utilization is {{ $value }}% (>70%) on {{ $labels.mountpoint }}."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-storage"
+
+      - alert: DiskSaturation
+        expr: avg by(instance)(irate(node_disk_io_time_seconds_total[5m]) * 100) > 30
+        for: 5m
+        labels:
+          severity: warning
+          component: disk
+          use_method: saturation
+        annotations:
+          summary: "Disk I/O saturation on {{ $labels.instance }}"
+          description: "Disk I/O time is {{ $value }}% (>30%). Storage bottleneck."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-storage"
+
+      - alert: DiskErrors
+        expr: increase(node_disk_read_errors_total[5m]) + increase(node_disk_write_errors_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: disk
+          use_method: errors
+        annotations:
+          summary: "Disk I/O errors on {{ $labels.instance }}"
+          description: "{{ $value }} disk errors in last 5 minutes on {{ $labels.device }}."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-storage"
+
+  - name: USE-Method-Network
+    rules:
+      - alert: NetworkHighUtilization
+        expr: (irate(node_network_receive_bytes_total{device!="lo"}[5m]) + irate(node_network_transmit_bytes_total{device!="lo"}[5m])) * 8 / 1000000 > 800
+        for: 5m
+        labels:
+          severity: warning
+          component: network
+          use_method: utilization
+        annotations:
+          summary: "Network utilization high on {{ $labels.instance }}"
+          description: "Network throughput is {{ $value }}Mbps (>800Mbps)."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-network"
+
+      - alert: NetworkSaturation
+        expr: (irate(node_network_receive_drop_total{device!="lo"}[5m]) + irate(node_network_transmit_drop_total{device!="lo"}[5m])) > 50
+        for: 5m
+        labels:
+          severity: warning
+          component: network
+          use_method: saturation
+        annotations:
+          summary: "Network packet drops on {{ $labels.instance }}"
+          description: "{{ $value }} packet drops/sec (>50). Network saturation."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-network"
+
+      - alert: NetworkErrors
+        expr: (irate(node_network_receive_errs_total{device!="lo"}[5m]) + irate(node_network_transmit_errs_total{device!="lo"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: critical
+          component: network
+          use_method: errors
+        annotations:
+          summary: "Network errors on {{ $labels.instance }}"
+          description: "{{ $value }} network errors/sec (>1). Hardware or configuration issues."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-network"
+
+  - name: USE-Method-System
+    rules:
+      - alert: ZombieProcesses
+        expr: node_processes_state{state="Z"} > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+          use_method: errors
+        annotations:
+          summary: "Zombie processes on {{ $labels.instance }}"
+          description: "{{ $value }} zombie processes detected. Parent process cleanup needed."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-system"
+
+      - alert: UninterruptibleSleep
+        expr: node_processes_state{state="D"} > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+          use_method: saturation
+        annotations:
+          summary: "Processes in uninterruptible sleep on {{ $labels.instance }}"
+          description: "{{ $value }} processes in D state. I/O bottleneck or hardware issues."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-system"
+
+      - alert: FileDescriptorExhaustion
+        expr: node_filefd_allocated / node_filefd_maximum * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+          use_method: utilization
+        annotations:
+          summary: "File descriptor utilization high on {{ $labels.instance }}"
+          description: "File descriptor utilization is {{ $value }}% (>80%)."
+          runbook: "https://github.com/brendangregg/USE-Method#use-method-for-system"

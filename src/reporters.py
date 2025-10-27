@@ -12,15 +12,23 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 from datetime import datetime
 
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import numpy as np
-import pandas as pd
 from jinja2 import Template
 
 from analyzers import USEScore, Status
 
 logger = logging.getLogger(__name__)
+
+# Optional imports for plotting
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    import numpy as np
+    import pandas as pd
+
+    HAS_PLOTTING = True
+except ImportError as e:
+    HAS_PLOTTING = False
+    logger.warning(f"Plotting libraries not available: {e}")
 
 
 class ReportGenerator:
@@ -38,11 +46,12 @@ class ReportGenerator:
         )
 
         # Configurar matplotlib para estilo profissional
-        plt.style.use("seaborn-v0_8")
-        plt.rcParams["figure.figsize"] = (12, 8)
-        plt.rcParams["font.size"] = 10
-        plt.rcParams["axes.titlesize"] = 14
-        plt.rcParams["axes.labelsize"] = 12
+        if HAS_PLOTTING:
+            plt.style.use("seaborn-v0_8")
+            plt.rcParams["figure.figsize"] = (12, 8)
+            plt.rcParams["font.size"] = 10
+            plt.rcParams["axes.titlesize"] = 14
+            plt.rcParams["axes.labelsize"] = 12
 
     def generate_html_report(
         self,

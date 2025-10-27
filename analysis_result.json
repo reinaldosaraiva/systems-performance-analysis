@@ -1,0 +1,205 @@
+{
+    "session_id": "4a98c832-2597-4b81-a1cb-eb0e147bd82f",
+    "timestamp": "2025-10-27T16:59:17.231847",
+    "system_metrics": {
+        "timestamp": "2025-10-27T16:59:17.231856",
+        "hostname": "MacBook-Pro-2.local",
+        "cpu": {
+            "utilization": 27.7,
+            "load_1m": 6.97265625,
+            "load_5m": 6.47998046875,
+            "load_15m": 6.3994140625,
+            "cpu_count_physical": 14,
+            "cpu_count_logical": 14,
+            "cpu_times_user": 1187901.65,
+            "cpu_times_system": 563770.91,
+            "cpu_times_idle": 8249096.95,
+            "context_switches": 0,
+            "saturation": 49.8046875,
+            "timestamp": 1761595157.229783,
+            "unit": {
+                "utilization": "%",
+                "load": "processes",
+                "cpu_times": "seconds",
+                "context_switches": "count",
+                "saturation": "%"
+            }
+        },
+        "memory": {
+            "total": 51539607552,
+            "available": 13553729536,
+            "used": 18886328320,
+            "free": 89718784,
+            "utilization": 73.7,
+            "buffers": 0,
+            "cached": 0,
+            "swap_total": 24159191040,
+            "swap_used": 22724149248,
+            "swap_free": 1435041792,
+            "swap_utilization": 94.1,
+            "memory_pressure": 0,
+            "saturation": 0,
+            "timestamp": 1761595157.2298398,
+            "unit": {
+                "memory": "bytes",
+                "utilization": "%",
+                "pressure": "percentage",
+                "saturation": "%"
+            }
+        },
+        "disk": {
+            "partitions": {
+                "partition__dev_disk3s1s1": {
+                    "total": 494384795648,
+                    "used": 12041584640,
+                    "free": 90638839808,
+                    "utilization": 2.4356705032194315,
+                    "mountpoint": "/",
+                    "fstype": "apfs"
+                },
+                "partition__dev_disk3s6": {
+                    "total": 494384795648,
+                    "used": 24184324096,
+                    "free": 90638839808,
+                    "utilization": 4.891801752175878,
+                    "mountpoint": "/System/Volumes/VM",
+                    "fstype": "apfs"
+                },
+                "partition__dev_disk3s2": {
+                    "total": 494384795648,
+                    "used": 7705419776,
+                    "free": 90638839808,
+                    "utilization": 1.5585875301647076,
+                    "mountpoint": "/System/Volumes/Preboot",
+                    "fstype": "apfs"
+                },
+                "partition__dev_disk3s4": {
+                    "total": 494384795648,
+                    "used": 6922240,
+                    "free": 90638839808,
+                    "utilization": 0.0014001725095382194,
+                    "mountpoint": "/System/Volumes/Update",
+                    "fstype": "apfs"
+                },
+                "partition__dev_disk1s2": {
+                    "total": 524288000,
+                    "used": 6311936,
+                    "free": 504188928,
+                    "utilization": 1.20390625,
+                    "mountpoint": "/System/Volumes/xarts",
+                    "fstype": "apfs"
+                },
+                "partition__dev_disk1s1": {
+                    "total": 524288000,
+                    "used": 5910528,
+                    "free": 504188928,
+                    "utilization": 1.12734375,
+                    "mountpoint": "/System/Volumes/iSCPreboot",
+                    "fstype": "apfs"
+                },
+                "partition__dev_disk1s3": {
+                    "total": 524288000,
+                    "used": 2899968,
+                    "free": 504188928,
+                    "utilization": 0.553125,
+                    "mountpoint": "/System/Volumes/Hardware",
+                    "fstype": "apfs"
+                },
+                "partition__dev_disk3s5": {
+                    "total": 494384795648,
+                    "used": 358441308160,
+                    "free": 90638839808,
+                    "utilization": 72.50249427476503,
+                    "mountpoint": "/System/Volumes/Data",
+                    "fstype": "apfs"
+                },
+                "partition__dev_disk4s1": {
+                    "total": 461885440,
+                    "used": 458608640,
+                    "free": 3276800,
+                    "utilization": 99.2905600141888,
+                    "mountpoint": "/Volumes/SketchUp Viewer",
+                    "fstype": "hfs"
+                }
+            },
+            "io": {
+                "read_count": 126869974,
+                "write_count": 108848471,
+                "read_bytes": 2304137273344,
+                "write_bytes": 1417442390016,
+                "read_time": 30344771,
+                "write_time": 3990197,
+                "read_throughput": 2197396.5390625,
+                "write_throughput": 1351778.40234375,
+                "utilization": 3433496.8
+            },
+            "total_size": 2473958727680,
+            "total_used": 402853289984,
+            "total_free": 454710042624,
+            "total_utilization": 16.283751441633104,
+            "saturation": 3433496.8,
+            "timestamp": 1761595157.230539,
+            "unit": {
+                "size": "bytes",
+                "throughput": "MB/s",
+                "utilization": "%",
+                "time": "milliseconds",
+                "count": "operations"
+            }
+        },
+        "network": {
+            "error": "(pid=36065)",
+            "timestamp": 1761595157.231764
+        },
+        "processes": 907,
+        "load_average": [
+            0,
+            0,
+            0
+        ]
+    },
+    "use_analysis": {
+        "cpu": {
+            "status": "WARNING",
+            "overall_score": 49.8046875,
+            "utilization_score": 27.7,
+            "saturation_score": 49.8046875,
+            "errors_score": 0,
+            "recommendation": "\u26a1 CPU saturada: Load average elevado indica processamento excessivo. Verifique processos CPU-bound e considere otimiza\u00e7\u00e3o ou distribui\u00e7\u00e3o de carga.",
+            "recommendations": [
+                "\u26a1 CPU saturada: Load average elevado indica processamento excessivo. Verifique processos CPU-bound e considere otimiza\u00e7\u00e3o ou distribui\u00e7\u00e3o de carga.",
+                "\u26a0\ufe0f WARNING: Monitoramento pr\u00f3ximo recomendado. Planeje a\u00e7\u00f5es corretivas preventivas."
+            ]
+        },
+        "memory": {
+            "status": "OK",
+            "overall_score": 73.7,
+            "utilization_score": 73.7,
+            "saturation_score": 0,
+            "errors_score": 0,
+            "recommendation": "\u2705 OK: Componente operando dentro dos par\u00e2metros normais.",
+            "recommendations": [
+                "\u2705 OK: Componente operando dentro dos par\u00e2metros normais."
+            ]
+        },
+        "disk": {
+            "status": "WARNING",
+            "overall_score": 100,
+            "utilization_score": 16.283751441633104,
+            "saturation_score": 100,
+            "errors_score": 0,
+            "recommendation": "\u23f1\ufe0f I/O saturado: Disk bottleneck detectado. Considere SSD upgrade, RAID optimization ou distribui\u00e7\u00e3o de I/O across multiple disks.",
+            "recommendations": [
+                "\u23f1\ufe0f I/O saturado: Disk bottleneck detectado. Considere SSD upgrade, RAID optimization ou distribui\u00e7\u00e3o de I/O across multiple disks.",
+                "\u26a0\ufe0f WARNING: Monitoramento pr\u00f3ximo recomendado. Planeje a\u00e7\u00f5es corretivas preventivas."
+            ]
+        }
+    },
+    "latency_analysis": null,
+    "autogen_analysis": null,
+    "recommendations": [
+        "\u26a0\ufe0f Cpu: \u26a1 CPU saturada: Load average elevado indica processamento excessivo. Verifique processos CPU-bound e considere otimiza\u00e7\u00e3o ou distribui\u00e7\u00e3o de carga.",
+        "\u26a0\ufe0f Disk: \u23f1\ufe0f I/O saturado: Disk bottleneck detectado. Considere SSD upgrade, RAID optimization ou distribui\u00e7\u00e3o de I/O across multiple disks."
+    ],
+    "status": "completed"
+}

@@ -1,0 +1,201 @@
+# Alert Rules for Systems Performance
+# Regras de alerta baseadas no USE Method
+
+groups:
+  - name: system_performance_alerts
+    rules:
+      # CPU Alerts
+      - alert: HighCPUUtilization
+        expr: 100 - avg by(instance)(irate(node_cpu_seconds_total{mode="idle"}[5m]) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: cpu
+          method: use
+        annotations:
+          summary: "High CPU utilization detected"
+          description: "CPU utilization is above 80% for more than 5 minutes on {{ $labels.instance }}"
+          runbook: "https://github.com/reinaldosaraiva/systems-performance/wiki/CPU-Troubleshooting"
+
+      - alert: CriticalCPUUtilization
+        expr: 100 - avg by(instance)(irate(node_cpu_seconds_total{mode="idle"}[5m]) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: cpu
+          method: use
+        annotations:
+          summary: "Critical CPU utilization detected"
+          description: "CPU utilization is above 95% for more than 2 minutes on {{ $labels.instance }}"
+
+      - alert: HighLoadAverage
+        expr: node_load1 > (count by (instance)(node_cpu_seconds_total{mode="idle"}) * 2)
+        for: 5m
+        labels:
+          severity: warning
+          component: cpu
+          method: use
+        annotations:
+          summary: "High load average detected"
+          description: "Load average (1m) is {{ $value }} on {{ $labels.instance }}"
+
+      # Memory Alerts
+      - alert: HighMemoryUtilization
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: memory
+          method: use
+        annotations:
+          summary: "High memory utilization detected"
+          description: "Memory utilization is above 85% on {{ $labels.instance }}"
+
+      - alert: CriticalMemoryUtilization
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: memory
+          method: use
+        annotations:
+          summary: "Critical memory utilization detected"
+          description: "Memory utilization is above 95% on {{ $labels.instance }}"
+
+      - alert: HighSwapUsage
+        expr: (1 - (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes)) * 100 > 50
+        for: 5m
+        labels:
+          severity: warning
+          component: memory
+          method: use
+        annotations:
+          summary: "High swap usage detected"
+          description: "Swap usage is above 50% on {{ $labels.instance }}"
+
+      # Disk Alerts
+      - alert: HighDiskUtilization
+        expr: (1 - (node_filesystem_free_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: disk
+          method: use
+        annotations:
+          summary: "High disk utilization detected"
+          description: "Disk utilization is above 85% on {{ $labels.instance }} at {{ $labels.mountpoint }}"
+
+      - alert: CriticalDiskUtilization
+        expr: (1 - (node_filesystem_free_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: disk
+          method: use
+        annotations:
+          summary: "Critical disk utilization detected"
+          description: "Disk utilization is above 95% on {{ $labels.instance }} at {{ $labels.mountpoint }}"
+
+      - alert: HighIOWait
+        expr: avg by(instance)(irate(node_cpu_seconds_total{mode="iowait"}[5m]) * 100) > 20
+        for: 5m
+        labels:
+          severity: warning
+          component: disk
+          method: use
+        annotations:
+          summary: "High I/O wait detected"
+          description: "I/O wait is above 20% on {{ $labels.instance }}"
+
+      # Network Alerts
+      - alert: HighNetworkErrors
+        expr: rate(node_network_receive_errs_total[5m]) + rate(node_network_transmit_errs_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: network
+          method: use
+        annotations:
+          summary: "High network error rate detected"
+          description: "Network error rate is {{ $value }} errors/sec on {{ $labels.instance }}"
+
+      - alert: HighNetworkDrops
+        expr: rate(node_network_receive_drop_total[5m]) + rate(node_network_transmit_drop_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: network
+          method: use
+        annotations:
+          summary: "High packet drop rate detected"
+          description: "Packet drop rate is {{ $value }} drops/sec on {{ $labels.instance }}"
+
+      # System Alerts
+      - alert: SystemDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: system
+          method: use
+        annotations:
+          summary: "System is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute"
+
+      - alert: HighNumberOfProcesses
+        expr: node_processes_state{state="Z"} > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+          method: use
+        annotations:
+          summary: "High number of zombie processes"
+          description: "{{ $value }} zombie processes detected on {{ $labels.instance }}"
+
+      - alert: FileDescriptorUsage
+        expr: (node_filefd_allocated / node_filefd_maximum) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+          method: use
+        annotations:
+          summary: "High file descriptor usage"
+          description: "File descriptor usage is {{ $value }}% on {{ $labels.instance }}"
+
+  - name: performance_trends
+    rules:
+      # Trend Alerts
+      - alert: CPUUtilizationIncreasing
+        expr: predict_linear(cpu_utilization[1h], 3600) > 90
+        for: 10m
+        labels:
+          severity: warning
+          component: cpu
+          method: trend
+        annotations:
+          summary: "CPU utilization trending upwards"
+          description: "CPU utilization is predicted to reach 90% in the next hour"
+
+      - alert: MemoryUsageIncreasing
+        expr: predict_linear(memory_utilization[2h], 7200) > 90
+        for: 15m
+        labels:
+          severity: warning
+          component: memory
+          method: trend
+        annotations:
+          summary: "Memory usage trending upwards"
+          description: "Memory usage is predicted to reach 90% in the next 2 hours"
+
+      - alert: DiskSpaceRunningOut
+        expr: predict_linear(disk_utilization[24h], 86400) > 95
+        for: 30m
+        labels:
+          severity: critical
+          component: disk
+          method: trend
+        annotations:
+          summary: "Disk space running out"
+          description: "Disk utilization is predicted to reach 95% in the next 24 hours"

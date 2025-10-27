@@ -1,0 +1,76 @@
+{
+  "timestamp": "2025-10-27T19:12:37.195540",
+  "methodology": "USE Method by Brendan Gregg",
+  "thresholds": {
+    "cpu": {
+      "utilization": 80,
+      "saturation": 20,
+      "errors": 0
+    },
+    "memory": {
+      "utilization": 85,
+      "saturation": 10,
+      "errors": 0
+    },
+    "disk": {
+      "utilization": 70,
+      "saturation": 30,
+      "errors": 0
+    },
+    "network": {
+      "utilization": 80,
+      "saturation": 15,
+      "errors": 0
+    }
+  },
+  "scores": {
+    "cpu": {
+      "component": "cpu",
+      "utilization": 0.0,
+      "saturation": 0.0,
+      "errors": 0.0,
+      "overall_score": 0.0,
+      "status": "OK",
+      "recommendations": [
+        "\u2705 OK: Component operating within normal parameters"
+      ],
+      "timestamp": "2025-10-27T19:12:37.183285"
+    },
+    "memory": {
+      "component": "memory",
+      "utilization": 0.0,
+      "saturation": 0.0,
+      "errors": 0.0,
+      "overall_score": 0.0,
+      "status": "OK",
+      "recommendations": [
+        "\u2705 OK: Component operating within normal parameters"
+      ],
+      "timestamp": "2025-10-27T19:12:37.187135"
+    },
+    "disk": {
+      "component": "disk",
+      "utilization": 0.0,
+      "saturation": 0.0,
+      "errors": 0.0,
+      "overall_score": 0.0,
+      "status": "OK",
+      "recommendations": [
+        "\u2705 OK: Component operating within normal parameters"
+      ],
+      "timestamp": "2025-10-27T19:12:37.191234"
+    },
+    "network": {
+      "component": "network",
+      "utilization": 0.0,
+      "saturation": 0.0,
+      "errors": 0.0,
+      "overall_score": 0.0,
+      "status": "OK",
+      "recommendations": [
+        "\u2705 OK: Component operating within normal parameters"
+      ],
+      "timestamp": "2025-10-27T19:12:37.195436"
+    }
+  }
+}
