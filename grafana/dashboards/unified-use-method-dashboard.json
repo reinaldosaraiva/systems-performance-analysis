@@ -1,0 +1,821 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "USE Method - Sistema de Análise de Performance Unificado",
+    "description": "Dashboard unificado para diagnosticar 'O sistema está lento' usando o método USE com checklist de 60 segundos",
+    "tags": ["use-method", "unified", "performance", "60-seconds"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "instance",
+          "type": "query", 
+          "datasource": "Prometheus-Local",
+          "query": "label_values(up, instance)",
+          "multi": false,
+          "includeAll": false,
+          "refresh": 1
+        },
+        {
+          "name": "disk_response_target",
+          "type": "custom",
+          "hide": 2,
+          "current": {
+            "text": "1ms",
+            "value": "1"
+          },
+          "options": [
+            {"text": "0.5ms (SSD Alta Performance)", "value": "0.5"},
+            {"text": "1ms (SSD Normal)", "value": "1"},
+            {"text": "5ms (HDD Rápido)", "value": "5"},
+            {"text": "10ms (HDD Normal)", "value": "10"}
+          ],
+          "description": "Meta de tempo de resposta de disco"
+        },
+        {
+          "name": "response_time_target",
+          "type": "custom",
+          "hide": 2,
+          "current": {
+            "text": "100ms",
+            "value": "100"
+          },
+          "options": [
+            {"text": "50ms (Ultra Rápido)", "value": "50"},
+            {"text": "100ms (Rápido)", "value": "100"},
+            {"text": "500ms (Normal)", "value": "500"},
+            {"text": "1000ms (Aceitável)", "value": "1000"}
+          ],
+          "description": "Meta de tempo de resposta da aplicação"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 2,
+        "title": "🚨 O SISTEMA ESTÁ LENTO? - Comparação Objetiva",
+        "description": "Metas: Latência App < 100ms | Latência Disco < 1ms (SSD) ou < 10ms (HDD) | CPU < 80% | Memória < 85%",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "up{instance=\"$instance\",job=\"node_exporter\"}",
+            "legendFormat": "🔄 Status do Sistema",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(prometheus_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "⏱️ Latência p95",
+            "refId": "B"
+          },
+          {
+            "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)",
+            "legendFormat": "🖥️ CPU Usado (Meta: <80%)",
+            "refId": "C"
+          },
+          {
+            "expr": "(node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "🧠 Memória Usada (Meta: <85%)",
+            "refId": "D"
+          },
+          {
+            "expr": "avg(rate(node_disk_read_time_seconds_total{instance=\"$instance\"}[5m]) + rate(node_disk_write_time_seconds_total{instance=\"$instance\"}[5m])) * 1000",
+            "legendFormat": "💾 Latência Disco",
+            "refId": "E"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "noValue": "N/A",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            },
+            "mappings": [
+              {
+                "type": "special",
+                "options": {
+                  "match": "null",
+                  "result": {
+                    "text": "N/A"
+                  }
+                }
+              }
+            ]
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "🔄 Status do Sistema"},
+              "properties": [
+                {"id": "mappings", "value": [
+                  {"options": {"0": {"text": "❌ OFFLINE", "color": "red"}}, "type": "value"},
+                  {"options": {"1": {"text": "✅ ONLINE", "color": "green"}}, "type": "value"}
+                ]}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "⏱️ Latência p95"},
+              "properties": [
+                {"id": "unit", "value": "ms"},
+                {"id": "thresholds", "value": {
+                  "steps": [
+                    {"color": "green", "value": 0},
+                    {"color": "yellow", "value": 80},
+                    {"color": "red", "value": 100}
+                  ]
+                }}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "💾 Latência Disco"},
+              "properties": [
+                {"id": "unit", "value": "ms"},
+                {"id": "decimals", "value": 1},
+                {"id": "thresholds", "value": {
+                  "steps": [
+                    {"color": "green", "value": 0},
+                    {"color": "yellow", "value": 0.8},
+                    {"color": "red", "value": 1}
+                  ]
+                }}
+              ]
+            },
+            {
+              "matcher": {"id": "byRegexp", "options": ".*Usado.*|.*Usada.*"},
+              "properties": [{"id": "unit", "value": "percent"}]
+            }
+          ]
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "orientation": "horizontal",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": ""
+          },
+          "text": {
+            "titleSize": 14,
+            "valueSize": 24
+          },
+          "textMode": "value_and_name"
+        }
+      },
+      {
+        "id": 10,
+        "title": "📋 CHECKLIST DE 60 SEGUNDOS - Coleta de Dados Vitais",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 4}
+      },
+      {
+        "id": 11,
+        "title": "1. Uptime & Load - Tendência (subindo ou descendo?)",
+        "type": "timeseries",
+        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "node_load1{instance=\"$instance\"}",
+            "legendFormat": "1 min",
+            "refId": "A"
+          },
+          {
+            "expr": "node_load5{instance=\"$instance\"}",
+            "legendFormat": "5 min",
+            "refId": "B"
+          },
+          {
+            "expr": "node_load15{instance=\"$instance\"}",
+            "legendFormat": "15 min",
+            "refId": "C"
+          },
+          {
+            "expr": "count(node_cpu_seconds_total{instance=\"$instance\",mode=\"idle\"})",
+            "legendFormat": "CPUs disponíveis",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "fillOpacity": 20,
+              "lineInterpolation": "smooth",
+              "showPoints": "never"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "CPUs disponíveis"},
+              "properties": [
+                {"id": "custom.lineStyle", "value": {"fill": "dash"}},
+                {"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": ["last"]
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "2. Eventos Críticos do Sistema - Últimos Alertas",
+        "type": "stat",
+        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 5},
+        "targets": [
+          {
+            "expr": "increase(node_vmstat_pgmajfault{instance=\"$instance\"}[5m])",
+            "legendFormat": "Page Faults Maiores",
+            "refId": "A"
+          },
+          {
+            "expr": "increase(node_vmstat_oom_kill{instance=\"$instance\"}[5m])",
+            "legendFormat": "OOM Kills",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(increase(node_network_receive_errs_total{instance=\"$instance\"}[5m]) + increase(node_network_transmit_errs_total{instance=\"$instance\"}[5m]))",
+            "legendFormat": "Erros de Rede",
+            "refId": "C"
+          },
+          {
+            "expr": "sum(increase(node_disk_read_errors_total{instance=\"$instance\"}[5m]) + increase(node_disk_write_errors_total{instance=\"$instance\"}[5m]))",
+            "legendFormat": "Erros de Disco",
+            "refId": "D"
+          },
+          {
+            "expr": "node_filesystem_files_free{instance=\"$instance\",fstype!=\"tmpfs\"} / node_filesystem_files{instance=\"$instance\",fstype!=\"tmpfs\"} < 0.1",
+            "legendFormat": "Inodes Livres < 10%",
+            "refId": "E"
+          },
+          {
+            "expr": "node_hwmon_temp_celsius{instance=\"$instance\"} > 80",
+            "legendFormat": "Temperatura Alta",
+            "refId": "F"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "noValue": "0",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 10}
+              ]
+            },
+            "mappings": [
+              {
+                "type": "special",
+                "options": {
+                  "match": "null",
+                  "result": {
+                    "text": "0",
+                    "color": "green"
+                  }
+                }
+              }
+            ]
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Inodes Livres < 10%"},
+              "properties": [
+                {
+                  "id": "mappings",
+                  "value": [
+                    {"type": "value", "options": {"0": {"text": "OK", "color": "green"}}},
+                    {"type": "value", "options": {"1": {"text": "ALERTA", "color": "red"}}}
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Temperatura Alta"},
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "celsius"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "steps": [
+                      {"color": "green", "value": 0},
+                      {"color": "yellow", "value": 70},
+                      {"color": "red", "value": 80}
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "orientation": "auto",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "textMode": "value_and_name",
+          "wideLayout": true,
+          "showPercentChange": false
+        }
+      },
+      {
+        "id": 13,
+        "title": "3. vmstat - Visão Instantânea do Sistema",
+        "type": "stat",
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 5},
+        "targets": [
+          {
+            "expr": "node_procs_running{instance=\"$instance\"}",
+            "legendFormat": "Procs Running",
+            "refId": "A"
+          },
+          {
+            "expr": "node_procs_blocked{instance=\"$instance\"}",
+            "legendFormat": "Procs Blocked",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(node_vmstat_pswpin{instance=\"$instance\"}[5m])",
+            "legendFormat": "Swap In/s",
+            "refId": "C"
+          },
+          {
+            "expr": "rate(node_vmstat_pswpout{instance=\"$instance\"}[5m])",
+            "legendFormat": "Swap Out/s",
+            "refId": "D"
+          },
+          {
+            "expr": "rate(node_context_switches_total{instance=\"$instance\"}[5m])",
+            "legendFormat": "Context Switch/s",
+            "refId": "E"
+          },
+          {
+            "expr": "rate(node_intr_total{instance=\"$instance\"}[5m])",
+            "legendFormat": "Interrupts/s",
+            "refId": "F"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0}
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Procs Blocked"},
+              "properties": [
+                {"id": "thresholds", "value": {
+                  "steps": [
+                    {"color": "green", "value": 0},
+                    {"color": "yellow", "value": 1},
+                    {"color": "red", "value": 5}
+                  ]
+                }}
+              ]
+            },
+            {
+              "matcher": {"id": "byRegexp", "options": "Swap.*"},
+              "properties": [
+                {"id": "unit", "value": "short"},
+                {"id": "thresholds", "value": {
+                  "steps": [
+                    {"color": "green", "value": 0},
+                    {"color": "yellow", "value": 10},
+                    {"color": "red", "value": 100}
+                  ]
+                }}
+              ]
+            }
+          ]
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 20,
+        "title": "🔍 MÉTODO USE - Utilização, Saturação e Erros",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 11}
+      },
+      {
+        "id": 21,
+        "title": "CPU - USE Analysis",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)",
+            "legendFormat": "Utilização %",
+            "refId": "A"
+          },
+          {
+            "expr": "(node_load1{instance=\"$instance\"} / count(node_cpu_seconds_total{instance=\"$instance\",mode=\"idle\"}) - 1) * 100",
+            "legendFormat": "Saturação %",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(node_cpu_seconds_total{mode=\"steal\",instance=\"$instance\"}[5m]) * 100",
+            "legendFormat": "Erros (steal) %",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "max": 100,
+            "custom": {
+              "fillOpacity": 30,
+              "lineInterpolation": "smooth",
+              "thresholdsStyle": {
+                "mode": "area"
+              }
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": ["mean", "last", "max"]
+          }
+        }
+      },
+      {
+        "id": 22,
+        "title": "Memória - USE Analysis",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 12},
+        "targets": [
+          {
+            "expr": "(node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "Utilização %",
+            "refId": "A"
+          },
+          {
+            "expr": "(node_memory_SwapTotal_bytes{instance=\"$instance\"} - node_memory_SwapFree_bytes{instance=\"$instance\"}) / node_memory_SwapTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "Saturação (Swap) %",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(node_edac_correctable_errors_total{instance=\"$instance\"}[5m]) + rate(node_edac_uncorrectable_errors_total{instance=\"$instance\"}[5m])",
+            "legendFormat": "Erros/s",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "max": 100,
+            "custom": {
+              "fillOpacity": 30,
+              "lineInterpolation": "smooth"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 80},
+                {"color": "red", "value": 95}
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Erros/s"},
+              "properties": [
+                {"id": "unit", "value": "short"},
+                {"id": "custom.axisPlacement", "value": "right"}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 23,
+        "title": "Disco - USE Analysis",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "max(rate(node_disk_io_time_seconds_total{instance=\"$instance\"}[5m])) * 100",
+            "legendFormat": "Utilização %",
+            "refId": "A"
+          },
+          {
+            "expr": "max(rate(node_disk_io_time_weighted_seconds_total{instance=\"$instance\"}[5m]))",
+            "legendFormat": "Saturação (Queue)",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(node_disk_read_errors_total{instance=\"$instance\"}[5m]) + rate(node_disk_write_errors_total{instance=\"$instance\"}[5m]))",
+            "legendFormat": "Erros/s",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "custom": {
+              "fillOpacity": 30
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Saturação (Queue)"},
+              "properties": [
+                {"id": "unit", "value": "short"},
+                {"id": "custom.axisPlacement", "value": "right"}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Erros/s"},
+              "properties": [
+                {"id": "unit", "value": "short"},
+                {"id": "custom.axisPlacement", "value": "right"}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 24,
+        "title": "Rede - USE Analysis",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 12},
+        "targets": [
+          {
+            "expr": "(sum(rate(node_network_receive_bytes_total{instance=\"$instance\"}[5m])) + sum(rate(node_network_transmit_bytes_total{instance=\"$instance\"}[5m]))) / 125000000 * 100",
+            "legendFormat": "Utilização % (1Gbps)",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(node_network_receive_drop_total{instance=\"$instance\"}[5m]) + rate(node_network_transmit_drop_total{instance=\"$instance\"}[5m]))",
+            "legendFormat": "Saturação (Drops/s)",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(node_network_receive_errs_total{instance=\"$instance\"}[5m]) + rate(node_network_transmit_errs_total{instance=\"$instance\"}[5m]))",
+            "legendFormat": "Erros/s",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "custom": {
+              "fillOpacity": 30
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byRegexp", "options": ".*(Drops|Erros).*"},
+              "properties": [
+                {"id": "unit", "value": "short"},
+                {"id": "custom.axisPlacement", "value": "right"}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 30,
+        "title": "👁️ DUAS PERSPECTIVAS - Análise Completa",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 20}
+      },
+      {
+        "id": 31,
+        "title": "🔼 Bottom-Up: Análise de Recursos (Visão Admin)",
+        "type": "bargauge",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 21},
+        "targets": [
+          {
+            "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)",
+            "legendFormat": "CPU",
+            "refId": "A"
+          },
+          {
+            "expr": "(node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100",
+            "legendFormat": "Memória",
+            "refId": "B"
+          },
+          {
+            "expr": "max(rate(node_disk_io_time_seconds_total{instance=\"$instance\"}[5m])) * 100",
+            "legendFormat": "Disco I/O",
+            "refId": "C"
+          },
+          {
+            "expr": "(sum(rate(node_network_receive_bytes_total{instance=\"$instance\"}[5m])) + sum(rate(node_network_transmit_bytes_total{instance=\"$instance\"}[5m]))) / 125000000 * 100",
+            "legendFormat": "Rede",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        },
+        "options": {
+          "displayMode": "gradient",
+          "orientation": "horizontal",
+          "showUnfilled": true
+        }
+      },
+      {
+        "id": 32,
+        "title": "🔽 Top-Down: Análise de Carga (Visão Dev)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21},
+        "targets": [
+          {
+            "expr": "sum(rate(prometheus_http_requests_total[5m]))",
+            "legendFormat": "Requisições/s",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(prometheus_http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "p95 Latência (ms)",
+            "refId": "B"
+          },
+          {
+            "expr": "(sum(rate(prometheus_http_requests_total{code=~\"5..\"}[5m])) / sum(rate(prometheus_http_requests_total[5m]))) * 100",
+            "legendFormat": "Taxa de Erro %",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "fillOpacity": 20,
+              "lineInterpolation": "smooth"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "p95 Latência (ms)"},
+              "properties": [
+                {"id": "unit", "value": "ms"},
+                {"id": "custom.axisPlacement", "value": "right"},
+                {"id": "color", "value": {"fixedColor": "yellow", "mode": "fixed"}}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Taxa de Erro %"},
+              "properties": [
+                {"id": "unit", "value": "percent"},
+                {"id": "custom.axisPlacement", "value": "right"},
+                {"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 40,
+        "title": "🎯 DIAGNÓSTICO FINAL - O Problema é Sistêmico?",
+        "type": "row",
+        "collapsed": false,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 29}
+      },
+      {
+        "id": 41,
+        "title": "Análise de Gargalos - Onde Está o Problema?",
+        "type": "text",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 30},
+        "options": {
+          "mode": "markdown",
+          "content": "## 🔍 Análise USE Method\n\n### CPU\n- **Utilização**: Verifique se > 80%\n- **Saturação**: Load average > número de CPUs\n- **Erros**: CPU steal time em VMs\n\n### Memória\n- **Utilização**: Verifique se > 85%\n- **Saturação**: Uso de swap ativo\n- **Erros**: Erros de hardware ECC\n\n### Disco\n- **Utilização**: I/O time > 70%\n- **Saturação**: Queue depth elevada\n- **Erros**: Read/write errors\n\n### Rede\n- **Utilização**: Throughput vs capacidade\n- **Saturação**: Packet drops\n- **Erros**: Interface errors\n\n---\n\n### ⚡ Lembre-se:\n**\"O sistema está lento\"** precisa de contexto!\n\n1. **Defina metas objetivas** (ms, req/s)\n2. **Meça antes de otimizar**\n3. **Um gargalo resolvido revela o próximo**"
+        }
+      },
+      {
+        "id": 42,
+        "title": "Score Card USE - Resumo Executivo",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 30},
+        "targets": [
+          {
+            "expr": "clamp_min(100 - (100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)), 0) * (node_load1{instance=\"$instance\"} < count(node_cpu_seconds_total{instance=\"$instance\",mode=\"idle\"})) + 50 * (node_load1{instance=\"$instance\"} >= count(node_cpu_seconds_total{instance=\"$instance\",mode=\"idle\"})) * (node_load1{instance=\"$instance\"} < 2 * count(node_cpu_seconds_total{instance=\"$instance\",mode=\"idle\"})) + 20 * (node_load1{instance=\"$instance\"} >= 2 * count(node_cpu_seconds_total{instance=\"$instance\",mode=\"idle\"}))",
+            "legendFormat": "CPU Score",
+            "refId": "A"
+          },
+          {
+            "expr": "100 - ((node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100)",
+            "legendFormat": "Memory Health %",
+            "refId": "B"
+          },
+          {
+            "expr": "100 - (rate(node_disk_io_time_seconds_total{instance=\"$instance\"}[5m]) * 100)",
+            "legendFormat": "Disk Health %",
+            "refId": "C"
+          },
+          {
+            "expr": "100 * (1 - bool(sum(rate(node_network_receive_errs_total{instance=\"$instance\"}[5m]) + rate(node_network_transmit_errs_total{instance=\"$instance\"}[5m]) + rate(node_network_receive_drop_total{instance=\"$instance\"}[5m]) + rate(node_network_transmit_drop_total{instance=\"$instance\"}[5m])) > 0.01))",
+            "legendFormat": "Network Health %",
+            "refId": "D"
+          },
+          {
+            "expr": "((clamp_max(100 - (100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)), 100)) * 0.3 + (clamp_max(100 - ((node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100), 100)) * 0.3 + (clamp_max(100 - (max(rate(node_disk_io_time_seconds_total{instance=\"$instance\"}[5m])) * 100), 100)) * 0.2 + (100 * (1 - bool(sum(rate(node_network_receive_errs_total{instance=\"$instance\"}[5m]) + rate(node_network_transmit_errs_total{instance=\"$instance\"}[5m])) > 0))) * 0.2)",
+            "legendFormat": "Overall System Health",
+            "refId": "E"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "orange", "value": 60},
+                {"color": "yellow", "value": 80},
+                {"color": "green", "value": 90}
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "orientation": "horizontal",
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          },
+          "text": {
+            "titleSize": 16,
+            "valueSize": 32
+          }
+        }
+      }
+    ],
+    "links": [
+      {
+        "asDropdown": false,
+        "icon": "external link",
+        "tags": [],
+        "targetBlank": true,
+        "title": "Documentação USE Method",
+        "tooltip": "Aprenda mais sobre o método USE",
+        "type": "link",
+        "url": "https://www.brendangregg.com/usemethod.html"
+      }
+    ]
+  }
+}

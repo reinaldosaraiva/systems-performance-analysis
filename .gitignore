@@ -203,3 +203,5 @@ Thumbs.db
 # Performance data
 *.prof
 *.profile
+CLAUDE.md
+CLAUDE_CONTEXT.md
