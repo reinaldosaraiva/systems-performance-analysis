@@ -16,12 +16,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 
-try:
-    from brendan_gregg_persona import BrendanGreggInsight
-    from brendan_llm_agent import BrendanLLMAgent, LLMConfig
-except ImportError:
-    from src.brendan_gregg_persona import BrendanGreggInsight
-    from src.brendan_llm_agent import BrendanLLMAgent, LLMConfig
+# TODO: These imports are temporarily disabled during refactoring
+# Will be replaced with DDD structure in Phase 3
+# try:
+#     from brendan_gregg_persona import BrendanGreggInsight
+#     from brendan_llm_agent import BrendanLLMAgent, LLMConfig
+# except ImportError:
+#     from src.brendan_gregg_persona import BrendanGreggInsight
+#     from src.brendan_llm_agent import BrendanLLMAgent, LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +80,14 @@ class BrendanInsightsAPI:
 
     def _setup_routes(self):
         """Setup API routes."""
+
+        # Include dashboard routes from new structure
+        try:
+            from src.presentation.api.routes.dashboard import router as dashboard_router
+            self.app.include_router(dashboard_router)
+            logger.info("✅ New template-based dashboard routes loaded")
+        except ImportError as e:
+            logger.warning(f"⚠️ Could not load new dashboard routes: {e}")
 
         @self.app.get("/")
         async def root():
@@ -402,72 +412,21 @@ class BrendanInsightsAPI:
                 logger.error(f"Error generating summary: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
 
-        @self.app.get("/api/insights/llm")
-        async def get_llm_insights():
-            """
-            Run LLM-powered analysis and return insights.
-
-            This endpoint executes real-time analysis using MiniMax-M2 LLM
-            via Ollama. May take 30-60 seconds to complete.
-            """
-            try:
-                logger.info("Starting LLM-powered analysis...")
-
-                # Initialize LLM agent
-                # Get Ollama URL from environment or use host.docker.internal for container
-                import os
-                ollama_url = os.getenv('OLLAMA_URL', 'http://localhost:11434/v1')
-
-                llm_agent = BrendanLLMAgent(
-                    prometheus_url=self.prometheus_url,
-                    llm_config=LLMConfig(
-                        base_url=ollama_url,
-                        model="minimax-m2:cloud",
-                        temperature=0.7
-                    )
-                )
-
-                # Run analysis
-                insights = await llm_agent.analyze_system()
-
-                # Convert insights to dict format
-                insights_dict = []
-                for insight in insights:
-                    insights_dict.append({
-                        "id": insight.id,
-                        "timestamp": insight.timestamp.isoformat(),
-                        "methodology": insight.methodology,
-                        "component": insight.component,
-                        "issue_type": insight.issue_type,
-                        "severity": insight.severity,
-                        "title": insight.title,
-                        "observation": insight.observation,
-                        "evidence": insight.evidence,
-                        "root_cause": insight.root_cause,
-                        "immediate_action": insight.immediate_action,
-                        "investigation_steps": insight.investigation_steps,
-                        "long_term_fix": insight.long_term_fix,
-                        "related_metrics": insight.related_metrics,
-                        "confidence": insight.confidence,
-                        "book_reference": insight.book_reference,
-                    })
-
-                logger.info(f"LLM analysis completed: {len(insights)} insights")
-
-                return {
-                    "source": "llm",
-                    "model": "minimax-m2:cloud",
-                    "total": len(insights_dict),
-                    "insights": insights_dict,
-                    "timestamp": datetime.now().isoformat(),
-                }
-
-            except Exception as e:
-                logger.error(f"Error in LLM analysis: {e}", exc_info=True)
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"LLM analysis failed: {str(e)}"
-                )
+        # TODO: Temporarily disabled during refactoring - will be re-enabled in Phase 3
+        # @self.app.get("/api/insights/llm")
+        # async def get_llm_insights():
+        #     """
+        #     Run LLM-powered analysis and return insights.
+        #
+        #     This endpoint executes real-time analysis using MiniMax-M2 LLM
+        #     via Ollama. May take 30-60 seconds to complete.
+        #     """
+        #     logger.warning("LLM endpoint temporarily disabled during refactoring")
+        #     return {
+        #         "status": "disabled",
+        #         "message": "LLM endpoint temporarily disabled during DDD refactoring. Will be re-enabled in Phase 3.",
+        #         "timestamp": datetime.now().isoformat(),
+        #     }
 
         @self.app.get("/dashboard/llm")
         async def llm_dashboard():
