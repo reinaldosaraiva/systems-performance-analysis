@@ -28,31 +28,6 @@ import uvicorn
 logger = logging.getLogger(__name__)
 
 
-# Global API instance for dependency injection
-_global_api_instance: Optional["BrendanInsightsAPI"] = None
-
-
-def get_global_api() -> Optional["BrendanInsightsAPI"]:
-    """
-    Get the global API instance for dependency injection.
-
-    Returns:
-        API instance or None if not yet initialized
-    """
-    return _global_api_instance
-
-
-def set_global_api(api: "BrendanInsightsAPI") -> None:
-    """
-    Set the global API instance.
-
-    Args:
-        api: API instance to set
-    """
-    global _global_api_instance
-    _global_api_instance = api
-
-
 class GrafanaQueryRequest(BaseModel):
     """Grafana query request format."""
 
@@ -127,10 +102,6 @@ class BrendanInsightsAPI:
         self.app.add_middleware(CORSMiddleware, **cors_config)
 
         self._setup_routes()
-
-        # Set global instance for dependency injection AFTER routes setup (Phase 4)
-        set_global_api(self)
-        logger.info("✅ Global API instance set for dependency injection")
 
     def _setup_routes(self):
         """Setup API routes."""
@@ -356,167 +327,15 @@ class BrendanInsightsAPI:
             """Health check endpoint."""
             return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
-        @self.app.get("/api/insights")
-        async def get_all_insights(
-            limit: int = Query(100, ge=1, le=1000),
-            severity: Optional[str] = None,
-            component: Optional[str] = None,
-        ):
-            """
-            Get all insights with optional filtering.
-
-            Args:
-                limit: Maximum number of insights to return
-                severity: Filter by severity (CRITICAL, HIGH, MEDIUM, LOW)
-                component: Filter by component (cpu, memory, disk, network)
-
-            Returns:
-                List of insights
-            """
-            try:
-                # Use repository if available (Phase 3)
-                if self.insights_repository:
-                    from src.domain.performance.value_objects.severity import Severity
-
-                    if severity and component:
-                        # Apply both filters
-                        severity_enum = Severity[severity.upper()]
-                        all_insights = await self.insights_repository.get_by_severity(severity_enum)
-                        insights_entities = [i for i in all_insights if component.lower() in i.component.lower()]
-                    elif severity:
-                        severity_enum = Severity[severity.upper()]
-                        insights_entities = await self.insights_repository.get_by_severity(severity_enum, limit)
-                    elif component:
-                        insights_entities = await self.insights_repository.get_by_component(component, limit)
-                    else:
-                        insights_entities = await self.insights_repository.get_all(limit)
-
-                    # Convert entities to dicts
-                    insights = [self._insight_to_dict(i) for i in insights_entities]
-                else:
-                    # Fallback to old method
-                    insights = self._load_latest_insights()
-
-                    # Apply filters
-                    if severity:
-                        insights = [i for i in insights if i["severity"] == severity.upper()]
-                    if component:
-                        insights = [i for i in insights if i["component"] == component.lower()]
-
-                    insights = insights[:limit]
-
-                return {
-                    "total": len(insights),
-                    "insights": insights,
-                    "timestamp": datetime.now().isoformat(),
-                }
-
-            except Exception as e:
-                logger.error(f"Error loading insights: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
-
-        @self.app.get("/api/insights/latest")
-        async def get_latest_insight():
-            """Get the most recent insight."""
-            try:
-                insights = self._load_latest_insights()
-                if not insights:
-                    return {
-                        "message": "No insights available",
-                        "timestamp": datetime.now().isoformat(),
-                    }
-
-                return {
-                    "insight": insights[0],
-                    "timestamp": datetime.now().isoformat(),
-                }
-
-            except Exception as e:
-                logger.error(f"Error loading latest insight: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
-
-        @self.app.get("/api/insights/severity/{severity}")
-        async def get_insights_by_severity(severity: str):
-            """Get insights filtered by severity level."""
-            try:
-                insights = self._load_latest_insights()
-                filtered = [i for i in insights if i["severity"] == severity.upper()]
-
-                return {
-                    "severity": severity.upper(),
-                    "count": len(filtered),
-                    "insights": filtered,
-                    "timestamp": datetime.now().isoformat(),
-                }
-
-            except Exception as e:
-                logger.error(f"Error loading insights by severity: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
-
-        @self.app.get("/api/insights/component/{component}")
-        async def get_insights_by_component(component: str):
-            """Get insights filtered by component."""
-            try:
-                insights = self._load_latest_insights()
-                filtered = [i for i in insights if i["component"] == component.lower()]
-
-                return {
-                    "component": component.lower(),
-                    "count": len(filtered),
-                    "insights": filtered,
-                    "timestamp": datetime.now().isoformat(),
-                }
-
-            except Exception as e:
-                logger.error(f"Error loading insights by component: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
-
-        @self.app.get("/api/insights/summary")
-        async def get_insights_summary():
-            """Get summary statistics of current insights."""
-            try:
-                # Use repository if available (Phase 3)
-                if self.insights_repository:
-                    # Get counts by severity from repository
-                    severity_counts_enum = await self.insights_repository.count_by_severity()
-                    severity_counts = {sev.value: count for sev, count in severity_counts_enum.items()}
-
-                    # Get all insights to count by component
-                    all_insights = await self.insights_repository.get_all()
-                    component_counts = {}
-                    for insight in all_insights:
-                        comp = insight.component
-                        component_counts[comp] = component_counts.get(comp, 0) + 1
-
-                    total = len(all_insights)
-                else:
-                    # Fallback to old method
-                    insights = self._load_latest_insights()
-
-                    severity_counts = {}
-                    component_counts = {}
-
-                    for insight in insights:
-                        # Count by severity
-                        sev = insight["severity"]
-                        severity_counts[sev] = severity_counts.get(sev, 0) + 1
-
-                        # Count by component
-                        comp = insight["component"]
-                        component_counts[comp] = component_counts.get(comp, 0) + 1
-
-                    total = len(insights)
-
-                return {
-                    "total_insights": total,
-                    "by_severity": severity_counts,
-                    "by_component": component_counts,
-                    "timestamp": datetime.now().isoformat(),
-                }
-
-            except Exception as e:
-                logger.error(f"Error generating summary: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
+        # NOTE: Old inline /api/insights routes have been migrated to
+        # src/presentation/api/routes/insights.py (Phase 4 - DDD refactoring)
+        # The new routes provide the same functionality with clean architecture:
+        # - GET /api/insights
+        # - GET /api/insights/latest
+        # - GET /api/insights/severity/{severity}
+        # - GET /api/insights/component/{component}
+        # - GET /api/insights/summary
+        # - GET /api/insights/critical
 
         @self.app.get("/api/insights/llm")
         async def get_llm_insights():
@@ -917,141 +736,11 @@ class BrendanInsightsAPI:
                 logger.error(f"Error generating annotations: {e}")
                 return []
 
-    @staticmethod
-    def _insight_to_dict(insight) -> Dict[str, Any]:
-        """
-        Convert PerformanceInsight entity to dictionary for API responses.
-
-        Args:
-            insight: PerformanceInsight entity
-
-        Returns:
-            Dictionary representation compatible with existing API format
-        """
-        from src.domain.performance.entities.performance_insight import PerformanceInsight
-
-        if isinstance(insight, PerformanceInsight):
-            return {
-                "title": insight.title,
-                "description": insight.description,
-                "component": insight.component,
-                "severity": insight.severity.value,
-                "timestamp": insight.timestamp.isoformat(),
-                "recommendations": insight.recommendations,
-                "metrics": insight.metrics,
-                "root_cause": insight.root_cause or "See analysis for details",
-                "observation": insight.description,
-                "immediate_action": (
-                    insight.recommendations[0] if insight.recommendations else "Review and investigate"
-                ),
-                "confidence": 95.0,
-                "methodology": insight.root_cause or "use_method",
-                "evidence": {metric: "See report" for metric in insight.metrics},
-            }
-        else:
-            # Already a dict (from old _load_latest_insights)
-            return insight
-
-    def _load_latest_insights(self) -> List[Dict[str, Any]]:
-        """
-        Load insights from the most recent validation report.
-
-        Returns:
-            List of insights as dictionaries
-        """
-        # Find the most recent validation file
-        validation_files = sorted(
-            self.reports_dir.glob("validation_*.txt"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )
-
-        if not validation_files:
-            logger.warning("No validation reports found")
-            return []
-
-        latest_file = validation_files[0]
-        logger.info(f"Loading insights from {latest_file}")
-
-        # Parse the validation report
-        insights = []
-        try:
-            with open(latest_file, "r", encoding="utf-8") as f:
-                content = f.read()
-
-            # Look for the insights section
-            if "💡 INSIGHTS GENERATED:" in content:
-                lines = content.split("\n")
-                in_insights_section = False
-                current_insight = {}
-
-                for line in lines:
-                    if "💡 INSIGHTS GENERATED:" in line:
-                        in_insights_section = True
-                        continue
-
-                    if in_insights_section:
-                        if line.startswith("  [") and "] " in line:
-                            # Start of new insight
-                            if current_insight:
-                                insights.append(current_insight)
-                            current_insight = {}
-
-                            # Parse title
-                            title_part = line.split("] ", 1)[1] if "] " in line else ""
-                            current_insight["title"] = title_part.strip()
-                            current_insight["timestamp"] = datetime.now().isoformat()
-
-                        elif "Component:" in line:
-                            current_insight["component"] = line.split("Component:", 1)[1].strip()
-
-                        elif "Severity:" in line:
-                            current_insight["severity"] = line.split("Severity:", 1)[1].strip()
-
-                        elif "Methodology:" in line:
-                            current_insight["methodology"] = line.split("Methodology:", 1)[1].strip()
-
-                        elif "Evidence:" in line:
-                            evidence_str = line.split("Evidence:", 1)[1].strip()
-                            # Parse key=value pairs
-                            evidence = {}
-                            for pair in evidence_str.split(", "):
-                                if "=" in pair:
-                                    key, value = pair.split("=", 1)
-                                    try:
-                                        evidence[key] = float(value)
-                                    except ValueError:
-                                        evidence[key] = value
-                            current_insight["evidence"] = evidence
-
-                        elif line.strip() and not line.startswith("="):
-                            # Additional description
-                            if "observation" not in current_insight:
-                                current_insight["observation"] = line.strip()
-                            else:
-                                current_insight["observation"] += " " + line.strip()
-
-                # Add last insight
-                if current_insight:
-                    insights.append(current_insight)
-
-            # Add default fields for any missing values
-            for insight in insights:
-                insight.setdefault("confidence", 95.0)
-                insight.setdefault("root_cause", "See analysis report for details")
-                insight.setdefault("immediate_action", "Review metrics and investigate")
-                insight.setdefault("observation", insight.get("title", ""))
-                insight.setdefault("severity", "MEDIUM")
-                insight.setdefault("component", "system")
-                insight.setdefault("methodology", "use_method")
-                insight.setdefault("evidence", {})
-
-        except Exception as e:
-            logger.error(f"Error parsing validation report: {e}")
-            return []
-
-        logger.info(f"Loaded {len(insights)} insights from {latest_file.name}")
-        return insights
+    # NOTE: Old helper methods _insight_to_dict() and _load_latest_insights()
+    # have been removed. This functionality is now handled by:
+    # - FileInsightsRepository (src/infrastructure/persistence/)
+    # - Use Cases (src/application/use_cases/performance/)
+    # - Clean routes (src/presentation/api/routes/insights.py)
 
     def run(self, host: str = "0.0.0.0", port: int = 8080):
         """
