@@ -374,13 +374,20 @@ class BrendanInsightsAPI:
                 # Convert to dict format
                 insights_data = []
                 for insight in insights:
+                    # Map fields to match Grafana dashboard expectations
+                    recommendations = insight.recommendations or []
+                    immediate_action = recommendations[0] if len(recommendations) > 0 else "Monitor system metrics closely"
+                    long_term_fix = recommendations[-1] if len(recommendations) > 1 else recommendations[0] if len(recommendations) == 1 else "Establish baseline metrics and monitoring"
+
                     insights_data.append({
                         "title": insight.title,
-                        "description": insight.description,
+                        "observation": insight.description,  # Grafana expects "observation"
+                        "immediate_action": immediate_action,  # First recommendation
+                        "long_term_fix": long_term_fix,  # Last recommendation
                         "component": insight.component,
                         "severity": insight.severity.value,
                         "timestamp": insight.timestamp.isoformat(),
-                        "recommendations": insight.recommendations,
+                        "recommendations": recommendations,
                         "metrics": insight.metrics,
                         "root_cause": insight.root_cause or "AI analysis",
                         "confidence": 85.0,  # AI confidence level
