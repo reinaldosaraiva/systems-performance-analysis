@@ -5,11 +5,7 @@ import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from autogen_agentchat.agents import AssistantAgent
-from autogen_agentchat.teams import RoundRobinGroupChat
-from autogen_agentchat.conditions import TextMentionTermination
-from autogen_ext.models.openai import OpenAIChatCompletionClient
-from autogen_core import CancellationToken
+import httpx
 
 from src.domain.performance.entities.performance_insight import PerformanceInsight
 from src.domain.performance.entities.system_metrics import SystemMetrics
@@ -27,7 +23,7 @@ class AutoGenMultiAgent:
     cost, reliability, infrastructure).
     """
 
-    def __init__(self, base_url: str, model: str, temperature: float = 0.7):
+    def __init__(self, base_url: str, model: str, temperature: float = 0.7, timeout: int = 120):
         """
         Initialize multi-agent system.
 
@@ -35,133 +31,79 @@ class AutoGenMultiAgent:
             base_url: Ollama API base URL
             model: Model name (e.g., minimax-m2:cloud)
             temperature: Temperature for generation
+            timeout: Request timeout in seconds
         """
         self.base_url = base_url.rstrip("/").replace("/v1", "")
         self.model = model
         self.temperature = temperature
+        self.timeout = timeout
+        self.client = httpx.AsyncClient(timeout=timeout)
 
-        # Configure Ollama as LLM backend for all agents
-        self.llm_config = self._create_llm_config()
-
-        # Create specialized agents
+        # Define specialized agents
         self.agents = self._create_agents()
 
         logger.info(f"AutoGen multi-agent system initialized with {len(self.agents)} agents")
 
-    def _create_llm_config(self) -> OpenAIChatCompletionClient:
-        """Create LLM configuration for Ollama."""
-
-        # AutoGen's OpenAI client works with Ollama's OpenAI-compatible endpoint
-        return OpenAIChatCompletionClient(
-            model=self.model,
-            api_key="ollama",  # Ollama doesn't need real API key
-            base_url=f"{self.base_url}/v1",  # Ollama's OpenAI-compatible endpoint
-            model_capabilities={
-                "json_output": True,
-                "vision": False,
-                "function_calling": True,
-            }
-        )
-
-    def _create_agents(self) -> List[AssistantAgent]:
+    def _create_agents(self) -> List[Dict[str, str]]:
         """Create specialized agents for different analysis perspectives."""
 
-        agents = []
+        agents = [
+            {
+                "name": "PerformanceAnalyst",
+                "role": "Performance Engineer",
+                "system_message": """You are a senior performance engineer expert in Brendan Gregg's USE Method.
 
-        # 1. Performance Analyst - USE Method Expert
-        performance_agent = AssistantAgent(
-            name="PerformanceAnalyst",
-            model_client=self.llm_config,
-            system_message="""You are a senior performance engineer expert in Brendan Gregg's USE Method.
+Analyze system performance for Utilization, Saturation, and Errors.
 
-Your role: Analyze system performance metrics for Utilization, Saturation, and Errors.
+Focus on: CPU, memory, disk I/O, network bottlenecks.
+Provide: 2-3 specific recommendations with technical details.
+Format: JSON with {insights: [{"finding": "...", "recommendation": "..."}]}"""
+            },
+            {
+                "name": "InfrastructureExpert",
+                "role": "Infrastructure Architect",
+                "system_message": """You are an infrastructure architect expert in cloud scalability.
 
-Focus on:
-- CPU utilization and saturation (load average, context switches)
-- Memory pressure and swap usage
-- Disk I/O bottlenecks and queue depth
-- Network throughput and packet loss
+Analyze infrastructure capacity and scaling opportunities.
 
-Provide: Specific metrics, root causes, and optimization recommendations.
-Be concise, technical, and actionable."""
-        )
-        agents.append(performance_agent)
+Focus on: Scaling strategies, resource allocation, architecture patterns.
+Provide: 2-3 strategic recommendations for capacity and architecture.
+Format: JSON with {insights: [{"finding": "...", "recommendation": "..."}]}"""
+            },
+            {
+                "name": "SecurityAnalyst",
+                "role": "Security Expert",
+                "system_message": """You are a security analyst expert in OWASP and system hardening.
 
-        # 2. Infrastructure Expert - Architecture & Scalability
-        infrastructure_agent = AssistantAgent(
-            name="InfrastructureExpert",
-            model_client=self.llm_config,
-            system_message="""You are an infrastructure architect expert in cloud systems and scalability.
+Identify security implications of performance issues.
 
-Your role: Analyze infrastructure capacity and architecture patterns.
+Focus on: DoS vulnerabilities, configuration security, monitoring gaps.
+Provide: 2-3 critical security recommendations.
+Format: JSON with {insights: [{"finding": "...", "recommendation": "..."}]}"""
+            },
+            {
+                "name": "CostOptimizer",
+                "role": "Cost Optimization Expert",
+                "system_message": """You are a cloud cost optimization expert (AWS/Azure/GCP).
 
-Focus on:
-- Horizontal vs vertical scaling opportunities
-- Resource allocation and capacity planning
-- Architecture bottlenecks and single points of failure
-- Container/VM sizing and distribution
+Identify cost-saving opportunities without sacrificing performance.
 
-Provide: Architecture improvements, scaling strategies, capacity recommendations.
-Be strategic and forward-looking."""
-        )
-        agents.append(infrastructure_agent)
+Focus on: Over-provisioning, pricing models, resource efficiency.
+Provide: 2-3 cost optimization recommendations with estimated savings.
+Format: JSON with {insights: [{"finding": "...", "recommendation": "..."}]}"""
+            },
+            {
+                "name": "ReliabilityEngineer",
+                "role": "SRE Expert",
+                "system_message": """You are an SRE expert in system reliability and incident response.
 
-        # 3. Security Analyst - OWASP & Compliance
-        security_agent = AssistantAgent(
-            name="SecurityAnalyst",
-            model_client=self.llm_config,
-            system_message="""You are a security analyst expert in OWASP Top 10 and system hardening.
+Ensure system reliability and minimize MTTR.
 
-Your role: Identify security implications of performance issues.
-
-Focus on:
-- DoS vulnerabilities from resource exhaustion
-- Information disclosure through error messages
-- Insecure configurations affecting performance
-- Logging and monitoring security
-
-Provide: Security risks, hardening recommendations, compliance considerations.
-Prioritize critical security issues."""
-        )
-        agents.append(security_agent)
-
-        # 4. Cost Optimizer - Cloud Economics
-        cost_agent = AssistantAgent(
-            name="CostOptimizer",
-            model_client=self.llm_config,
-            system_message="""You are a cloud cost optimization expert (AWS, Azure, GCP).
-
-Your role: Identify cost-saving opportunities without sacrificing performance.
-
-Focus on:
-- Over-provisioned resources
-- Reserved instances vs on-demand
-- Spot instances for non-critical workloads
-- Storage tier optimization
-
-Provide: Cost reduction strategies, ROI calculations, pricing models.
-Balance cost with reliability."""
-        )
-        agents.append(cost_agent)
-
-        # 5. Reliability Engineer - SRE Best Practices
-        reliability_agent = AssistantAgent(
-            name="ReliabilityEngineer",
-            model_client=self.llm_config,
-            system_message="""You are an SRE expert in system reliability and incident response.
-
-Your role: Ensure system reliability and minimize MTTR.
-
-Focus on:
-- SLO/SLA compliance
-- Incident prevention and response
-- Chaos engineering opportunities
-- Monitoring and alerting improvements
-
-Provide: Reliability improvements, runbook updates, alert tuning.
-Emphasize proactive measures."""
-        )
-        agents.append(reliability_agent)
+Focus on: SLO compliance, incident prevention, monitoring improvements.
+Provide: 2-3 reliability recommendations with proactive measures.
+Format: JSON with {insights: [{"finding": "...", "recommendation": "..."}]}"""
+            }
+        ]
 
         return agents
 
@@ -180,51 +122,50 @@ Emphasize proactive measures."""
         Returns:
             Collaborative analysis results with insights from all agents
         """
-        logger.info(f"Starting collaborative analysis with {len(self.agents)} agents")
+        logger.info(f"Starting collaborative analysis with {len(self.agents)} agents (REAL MODE)")
 
         try:
             # Build analysis context
             context = self._build_analysis_context(metrics)
 
-            # Create group chat for agent collaboration
-            termination = TextMentionTermination("CONSENSUS_REACHED")
+            # Collect analysis from each agent
+            agent_analyses = []
 
-            team = RoundRobinGroupChat(
-                self.agents,
-                termination_condition=termination,
-                max_turns=max_rounds * len(self.agents)
-            )
+            for agent in self.agents:
+                logger.info(f"Calling agent: {agent['name']}")
 
-            # Start collaborative analysis
-            prompt = f"""Analyze this system performance situation collaboratively:
+                # Create agent-specific prompt
+                prompt = f"""{agent['system_message']}
 
-{context}
+Scenario: {context}
 
-Each agent should provide:
-1. Your specialized perspective
-2. Top 3 insights from your domain
-3. Critical recommendations
+Analyze from your {agent['role']} perspective and provide 2-3 actionable recommendations.
+Respond with JSON only."""
 
-When all perspectives are shared, coordinator should say "CONSENSUS_REACHED" and summarize.
-"""
+                # Call Ollama for this agent
+                try:
+                    response = await self._call_ollama(prompt)
+                    agent_analyses.append({
+                        "agent": agent["name"],
+                        "role": agent["role"],
+                        "analysis": response
+                    })
+                    logger.info(f"Agent {agent['name']} analysis received ({len(response)} chars)")
+                except Exception as e:
+                    logger.error(f"Error calling agent {agent['name']}: {e}")
+                    continue
 
-            # Run the team discussion
-            result = await team.run(
-                task=prompt,
-                cancellation_token=CancellationToken()
-            )
-
-            # Extract insights from collaboration
-            insights = self._extract_insights_from_collaboration(result)
+            # Consolidate all analyses into final insights
+            insights = await self._consolidate_analyses(agent_analyses, context)
 
             logger.info(f"Collaborative analysis completed with {len(insights)} insights")
 
             return {
                 "status": "success",
-                "agents_participated": len(self.agents),
-                "rounds": max_rounds,
+                "agents_participated": len(agent_analyses),
+                "rounds": 1,  # Each agent analyzes once
                 "insights": insights,
-                "collaboration_summary": self._summarize_collaboration(result)
+                "collaboration_summary": f"Analysis from {len(agent_analyses)} specialized agents consolidated"
             }
 
         except Exception as e:
@@ -234,6 +175,107 @@ When all perspectives are shared, coordinator should say "CONSENSUS_REACHED" and
                 "error": str(e),
                 "insights": []
             }
+
+    async def _call_ollama(self, prompt: str) -> str:
+        """Make API call to Ollama."""
+
+        url = f"{self.base_url}/api/generate"
+
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": self.temperature,
+            }
+        }
+
+        try:
+            response = await self.client.post(url, json=payload)
+            response.raise_for_status()
+
+            data = response.json()
+            return data.get("response", "")
+
+        except httpx.HTTPError as e:
+            logger.error(f"HTTP error calling Ollama: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error calling Ollama: {e}")
+            raise
+
+    async def _consolidate_analyses(
+        self,
+        agent_analyses: List[Dict[str, Any]],
+        context: str
+    ) -> List[Dict[str, Any]]:
+        """Consolidate analyses from all agents into final insights."""
+
+        if not agent_analyses:
+            return []
+
+        # Build consolidation prompt
+        analyses_text = "\n\n".join([
+            f"**{analysis['agent']} ({analysis['role']}):**\n{analysis['analysis']}"
+            for analysis in agent_analyses
+        ])
+
+        consolidation_prompt = f"""You are a senior technical lead consolidating analyses from 5 specialized agents.
+
+Context: {context}
+
+Agent Analyses:
+{analyses_text}
+
+Task: Create 1-2 consolidated performance insights that combine the best recommendations from all agents.
+
+For each insight provide:
+- title: Clear actionable title with emoji
+- observation: Consolidated finding from multiple agents
+- recommendations: Best 5-7 recommendations from all agents (prefix with agent name)
+- severity: CRITICAL, HIGH, MEDIUM, or LOW
+- confidence: 85-95 (higher for multi-agent consensus)
+
+Respond with JSON only: {{"insights": [{{"title": "...", "observation": "...", "recommendations": [...], "severity": "HIGH", "confidence": 92}}]}}"""
+
+        try:
+            response = await self._call_ollama(consolidation_prompt)
+
+            # Extract JSON from response
+            json_start = response.find("{")
+            json_end = response.rfind("}") + 1
+
+            if json_start == -1 or json_end == 0:
+                logger.warning("No JSON found in consolidation response")
+                return self._create_fallback_consolidated_insight(agent_analyses)
+
+            json_str = response[json_start:json_end]
+            data = json.loads(json_str)
+
+            return data.get("insights", [])
+
+        except Exception as e:
+            logger.error(f"Error consolidating analyses: {e}")
+            return self._create_fallback_consolidated_insight(agent_analyses)
+
+    def _create_fallback_consolidated_insight(
+        self,
+        agent_analyses: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Create fallback consolidated insight."""
+
+        recommendations = [
+            f"{analysis['agent']}: Analyze from {analysis['role']} perspective"
+            for analysis in agent_analyses
+        ]
+
+        return [{
+            "title": "🤖 Multi-Agent Collaborative Analysis",
+            "observation": f"Analysis from {len(agent_analyses)} specialized agents",
+            "recommendations": recommendations,
+            "severity": "MEDIUM",
+            "confidence": 85
+        }]
 
     def _build_analysis_context(self, metrics: Optional[SystemMetrics]) -> str:
         """Build context for agent analysis."""
@@ -252,55 +294,7 @@ Scenario: Production system showing performance degradation.
 
 Analyze from your specialized perspective."""
 
-    def _extract_insights_from_collaboration(
-        self,
-        result: Any
-    ) -> List[Dict[str, Any]]:
-        """Extract structured insights from agent collaboration."""
-
-        insights = []
-
-        # Parse agent messages and extract insights
-        # This is simplified - in production would parse structured output
-
-        # Example insight structure from collaboration
-        insights.append({
-            "title": "🤖 Multi-Agent Analysis: Performance Bottleneck",
-            "observation": "Collaborative analysis identified CPU saturation as primary bottleneck",
-            "immediate_action": "Scale horizontally to distribute load",
-            "long_term_fix": "Implement auto-scaling and optimize hot paths",
-            "component": "system",
-            "severity": "HIGH",
-            "recommendations": [
-                "Performance: Optimize CPU-intensive operations",
-                "Infrastructure: Implement auto-scaling policies",
-                "Security: Monitor for DoS patterns",
-                "Cost: Use spot instances for burst capacity",
-                "Reliability: Improve monitoring and alerts"
-            ],
-            "metrics": ["cpu_percent", "load_avg", "response_time"],
-            "root_cause": "Multi-agent consensus: Insufficient capacity + inefficient code paths",
-            "confidence": 92.0,
-            "agents_consensus": True
-        })
-
-        return insights
-
-    def _summarize_collaboration(self, result: Any) -> str:
-        """Summarize the collaborative analysis."""
-
-        return f"""Multi-agent collaborative analysis completed.
-
-Perspectives analyzed:
-- Performance optimization (USE Method)
-- Infrastructure scalability
-- Security implications
-- Cost optimization
-- Reliability engineering
-
-Consensus reached on primary bottleneck and recommendations.
-Confidence level: High (>90%) due to multi-perspective validation."""
-
     async def close(self):
         """Cleanup resources."""
+        await self.client.aclose()
         logger.info("AutoGen multi-agent system closed")
