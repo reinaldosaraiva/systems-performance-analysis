@@ -1,0 +1,485 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "brendan-agent-analysis",
+    "title": "Brendan Gregg Agent - Performance Analysis",
+    "tags": ["brendan-gregg", "use-method", "performance", "ai-agent"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "type": "stat",
+        "id": 1,
+        "title": "Total Insights",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "refId": "A",
+            "url": "http://localhost:8080/api/insights/summary",
+            "format": "json",
+            "method": "GET"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "horizontal",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": "/^total_insights$/"
+          },
+          "text": {},
+          "textMode": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 3},
+                {"color": "red", "value": 5}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "type": "stat",
+        "id": 2,
+        "title": "Critical Issues",
+        "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "refId": "A",
+            "url": "http://localhost:8080/api/insights/severity/CRITICAL",
+            "format": "json",
+            "method": "GET"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "orientation": "horizontal",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": "/^count$/"
+          },
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "red", "value": 1}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "type": "stat",
+        "id": 3,
+        "title": "High Severity",
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "refId": "A",
+            "url": "http://localhost:8080/api/insights/severity/HIGH",
+            "format": "json",
+            "method": "GET"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "orientation": "horizontal",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": "/^count$/"
+          },
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "orange", "value": 1}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "type": "stat",
+        "id": 4,
+        "title": "API Health",
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "refId": "A",
+            "url": "http://localhost:8080/health",
+            "format": "json",
+            "method": "GET"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "center",
+          "orientation": "horizontal",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": "/^status$/"
+          },
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "value": "healthy", "text": "✓ HEALTHY"}
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "type": "piechart",
+        "id": 5,
+        "title": "Issues by Severity",
+        "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+        "targets": [
+          {
+            "refId": "A",
+            "url": "http://localhost:8080/api/insights/summary",
+            "format": "json",
+            "method": "GET"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "donut",
+          "tooltip": {
+            "mode": "single"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "color": {
+              "mode": "palette-classic"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "CRITICAL"},
+              "properties": [
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "HIGH"},
+              "properties": [
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "MEDIUM"},
+              "properties": [
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "LOW"},
+              "properties": [
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "piechart",
+        "id": 6,
+        "title": "Issues by Component",
+        "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+        "targets": [
+          {
+            "refId": "A",
+            "url": "http://localhost:8080/api/insights/summary",
+            "format": "json",
+            "method": "GET"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "pie",
+          "tooltip": {
+            "mode": "single"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        }
+      },
+      {
+        "type": "table",
+        "id": 7,
+        "title": "All Insights - Detailed View",
+        "gridPos": {"x": 0, "y": 12, "w": 24, "h": 10},
+        "targets": [
+          {
+            "refId": "A",
+            "url": "http://localhost:8080/api/insights",
+            "format": "json",
+            "method": "GET"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {
+                "timestamp": 0,
+                "severity": 1,
+                "component": 2,
+                "title": 3,
+                "observation": 4,
+                "methodology": 5
+              },
+              "renameByName": {
+                "timestamp": "Time",
+                "severity": "Severity",
+                "component": "Component",
+                "title": "Issue",
+                "observation": "Details",
+                "methodology": "Method"
+              }
+            }
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": [
+            {
+              "displayName": "Severity",
+              "desc": false
+            }
+          ]
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "displayMode": "auto"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Severity"},
+              "properties": [
+                {
+                  "id": "custom.displayMode",
+                  "value": "color-background"
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "value": "CRITICAL",
+                      "color": "red"
+                    },
+                    {
+                      "type": "value",
+                      "value": "HIGH",
+                      "color": "orange"
+                    },
+                    {
+                      "type": "value",
+                      "value": "MEDIUM",
+                      "color": "yellow"
+                    },
+                    {
+                      "type": "value",
+                      "value": "LOW",
+                      "color": "green"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Component"},
+              "properties": [
+                {
+                  "id": "custom.displayMode",
+                  "value": "color-background"
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {"type": "value", "value": "cpu", "color": "blue"},
+                    {"type": "value", "value": "memory", "color": "purple"},
+                    {"type": "value", "value": "disk", "color": "semi-dark-green"},
+                    {"type": "value", "value": "network", "color": "semi-dark-orange"}
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "logs",
+        "id": 8,
+        "title": "Critical Insights - Details",
+        "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8},
+        "targets": [
+          {
+            "refId": "A",
+            "url": "http://localhost:8080/api/insights/severity/CRITICAL",
+            "format": "json",
+            "method": "GET"
+          }
+        ],
+        "options": {
+          "showLabels": false,
+          "showTime": true,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "type": "logs",
+        "id": 9,
+        "title": "High Severity Insights - Details",
+        "gridPos": {"x": 12, "y": 22, "w": 12, "h": 8},
+        "targets": [
+          {
+            "refId": "A",
+            "url": "http://localhost:8080/api/insights/severity/HIGH",
+            "format": "json",
+            "method": "GET"
+          }
+        ],
+        "options": {
+          "showLabels": false,
+          "showTime": true,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "type": "text",
+        "id": 10,
+        "title": "Latest Insight",
+        "gridPos": {"x": 0, "y": 30, "w": 24, "h": 6},
+        "targets": [
+          {
+            "refId": "A",
+            "url": "http://localhost:8080/api/insights/latest",
+            "format": "json",
+            "method": "GET"
+          }
+        ],
+        "options": {
+          "mode": "markdown",
+          "content": "# Latest Insight\n\n**Title:** ${insight.title}\n\n**Component:** ${insight.component} | **Severity:** ${insight.severity}\n\n**Observation:** ${insight.observation}\n\n**Root Cause:** ${insight.root_cause}\n\n**Immediate Action:** ${insight.immediate_action}\n\n---\n*Updated: ${timestamp}*"
+        }
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "name": "Brendan Agent Insights",
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "hide": false,
+          "iconColor": "rgba(255, 96, 96, 1)",
+          "builtIn": 1,
+          "type": "dashboard",
+          "url": "http://localhost:8080/annotations"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "severity",
+          "type": "custom",
+          "label": "Severity Filter",
+          "query": "ALL,CRITICAL,HIGH,MEDIUM,LOW",
+          "current": {
+            "selected": true,
+            "text": "ALL",
+            "value": "ALL"
+          },
+          "includeAll": false,
+          "multi": false
+        },
+        {
+          "name": "component",
+          "type": "custom",
+          "label": "Component Filter",
+          "query": "ALL,cpu,memory,disk,network",
+          "current": {
+            "selected": true,
+            "text": "ALL",
+            "value": "ALL"
+          },
+          "includeAll": false,
+          "multi": false
+        }
+      ]
+    }
+  },
+  "overwrite": true,
+  "message": "Brendan Gregg Agent Analysis Dashboard"
+}

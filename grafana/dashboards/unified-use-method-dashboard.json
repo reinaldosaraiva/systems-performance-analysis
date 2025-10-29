@@ -761,7 +761,7 @@
             "refId": "B"
           },
           {
-            "expr": "100 - (rate(node_disk_io_time_seconds_total{instance=\"$instance\"}[5m]) * 100)",
+            "expr": "100 - (avg(rate(node_disk_io_time_seconds_total{instance=\"$instance\"}[5m])) * 100)",
             "legendFormat": "Disk Health %",
             "refId": "C"
           },
@@ -773,7 +773,8 @@
           {
             "expr": "((clamp_max(100 - (100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)), 100)) * 0.3 + (clamp_max(100 - ((node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}) / node_memory_MemTotal_bytes{instance=\"$instance\"} * 100), 100)) * 0.3 + (clamp_max(100 - (max(rate(node_disk_io_time_seconds_total{instance=\"$instance\"}[5m])) * 100), 100)) * 0.2 + (100 * (1 - bool(sum(rate(node_network_receive_errs_total{instance=\"$instance\"}[5m]) + rate(node_network_transmit_errs_total{instance=\"$instance\"}[5m])) > 0))) * 0.2)",
             "legendFormat": "Overall System Health",
-            "refId": "E"
+            "refId": "E",
+            "hide": true
           }
         ],
         "fieldConfig": {
@@ -802,6 +803,21 @@
             "titleSize": 16,
             "valueSize": 32
           }
+        }
+      },
+      {
+        "id": 43,
+        "title": "🤖 Brendan Gregg AI - LLM-Powered Analysis",
+        "type": "text",
+        "gridPos": {
+          "h": 25,
+          "w": 24,
+          "x": 0,
+          "y": 38
+        },
+        "options": {
+          "mode": "html",
+          "content": "<iframe src=\"http://localhost:8080/dashboard/llm\" width=\"100%\" height=\"100%\" frameborder=\"0\" style=\"border: none; min-height: 1000px;\"></iframe>"
         }
       }
     ],

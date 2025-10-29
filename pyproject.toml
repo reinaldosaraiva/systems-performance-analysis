@@ -10,7 +10,7 @@ authors = [
     {name = "Reinaldo Saraiva", email = "reinaldo.saraiva@example.com"}
 ]
 license = {text = "MIT"}
-readme = "docs/README.md"
+readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["performance", "monitoring", "systems", "use-method", "devops"]
 classifiers = [
@@ -44,6 +44,9 @@ dependencies = [
     "aiohttp>=3.8.0",
     "prometheus-client>=0.16.0",
     "asyncio>=3.4.3",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "autogen-ext[openai]>=0.7.5",
 ]
 
 [project.optional-dependencies]

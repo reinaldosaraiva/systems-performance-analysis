@@ -296,10 +296,17 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Standard USE Method Analysis
   %(prog)s                                    # Full analysis with HTML report
   %(prog)s --components cpu,memory            # Analyze specific components
   %(prog)s --latency --format markdown        # Include latency analysis
   %(prog)s --schedule --time 08:00            # Schedule daily analysis
+
+  # Brendan Gregg Persona Analysis (with Prometheus/Grafana)
+  %(prog)s --brendan-analysis                 # Run Brendan persona analysis
+  %(prog)s --brendan-analysis --verbose       # With detailed query logging
+  %(prog)s --brendan-analysis --no-dashboards # Skip Grafana dashboards
+  %(prog)s --brendan-analysis --prometheus http://remote:9090 --grafana http://remote:3000
         """,
     )
 
@@ -346,6 +353,52 @@ Examples:
         "--version", action="version", version="Systems Performance Analysis Tool 1.0.0"
     )
 
+    parser.add_argument(
+        "--brendan-analysis",
+        action="store_true",
+        help="Run Brendan Gregg persona analysis with Prometheus/Grafana (requires --prometheus and --grafana URLs)",
+    )
+
+    parser.add_argument(
+        "--prometheus",
+        type=str,
+        default="http://localhost:9090",
+        help="Prometheus server URL (default: http://localhost:9090)",
+    )
+
+    parser.add_argument(
+        "--grafana",
+        type=str,
+        default="http://localhost:3000",
+        help="Grafana server URL (default: http://localhost:3000)",
+    )
+
+    parser.add_argument(
+        "--no-dashboards",
+        action="store_true",
+        help="Skip Grafana dashboard analysis (for --brendan-analysis)",
+    )
+
+    parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="Start API server after analysis to expose insights to Grafana (for --brendan-analysis)",
+    )
+
+    parser.add_argument(
+        "--api-host",
+        type=str,
+        default="0.0.0.0",
+        help="API server host (default: 0.0.0.0, only used with --serve)",
+    )
+
+    parser.add_argument(
+        "--api-port",
+        type=int,
+        default=8080,
+        help="API server port (default: 8080, only used with --serve)",
+    )
+
     return parser
 
 
@@ -369,7 +422,33 @@ def main():
     )
 
     try:
-        # Inicializar analisador
+        # Se --brendan-analysis foi especificado, usar Brendan Gregg persona
+        if args.brendan_analysis:
+            import asyncio
+            from brendan_gregg_cli import BrendanGreggCLI, start_api_server
+
+            console.print("\n[cyan]🎯 Running Brendan Gregg Persona Analysis[/cyan]\n")
+
+            cli = BrendanGreggCLI(verbose=args.verbose)
+
+            asyncio.run(cli.run_analysis(
+                prometheus_url=args.prometheus,
+                grafana_url=args.grafana,
+                analyze_dashboards=not args.no_dashboards,
+                output_format=args.format,
+            ))
+
+            # Start API server if --serve flag is provided
+            if args.serve:
+                start_api_server(
+                    host=args.api_host,
+                    port=args.api_port,
+                    reports_dir=Path("reports")
+                )
+
+            return
+
+        # Inicializar analisador padrão
         analyzer = PerformanceAnalyzer(args.output)
 
         # Parse components
