@@ -76,6 +76,15 @@ class BrendanInsightsAPI:
             self.reports_dir = reports_dir or Path("reports")
             self.prometheus_url = prometheus_url or "http://177.93.132.48:9090"
 
+        # Initialize repository (DDD Pattern - Phase 3)
+        try:
+            from src.infrastructure.persistence import FileInsightsRepository
+            self.insights_repository = FileInsightsRepository(self.reports_dir)
+            logger.info("✅ Repository pattern initialized")
+        except ImportError as e:
+            logger.warning(f"⚠️ Could not load repository: {e}")
+            self.insights_repository = None
+
         # Initialize FastAPI with settings
         self.app = FastAPI(
             title=self.settings.api_title if self.settings else "Brendan Gregg Agent API",
@@ -325,17 +334,40 @@ class BrendanInsightsAPI:
                 List of insights
             """
             try:
-                insights = self._load_latest_insights()
+                # Use repository if available (Phase 3)
+                if self.insights_repository:
+                    from src.domain.performance.value_objects.severity import Severity
 
-                # Apply filters
-                if severity:
-                    insights = [i for i in insights if i["severity"] == severity.upper()]
-                if component:
-                    insights = [i for i in insights if i["component"] == component.lower()]
+                    if severity and component:
+                        # Apply both filters
+                        severity_enum = Severity[severity.upper()]
+                        all_insights = await self.insights_repository.get_by_severity(severity_enum)
+                        insights_entities = [i for i in all_insights if component.lower() in i.component.lower()]
+                    elif severity:
+                        severity_enum = Severity[severity.upper()]
+                        insights_entities = await self.insights_repository.get_by_severity(severity_enum, limit)
+                    elif component:
+                        insights_entities = await self.insights_repository.get_by_component(component, limit)
+                    else:
+                        insights_entities = await self.insights_repository.get_all(limit)
+
+                    # Convert entities to dicts
+                    insights = [self._insight_to_dict(i) for i in insights_entities]
+                else:
+                    # Fallback to old method
+                    insights = self._load_latest_insights()
+
+                    # Apply filters
+                    if severity:
+                        insights = [i for i in insights if i["severity"] == severity.upper()]
+                    if component:
+                        insights = [i for i in insights if i["component"] == component.lower()]
+
+                    insights = insights[:limit]
 
                 return {
                     "total": len(insights),
-                    "insights": insights[:limit],
+                    "insights": insights,
                     "timestamp": datetime.now().isoformat(),
                 }
 
@@ -403,22 +435,40 @@ class BrendanInsightsAPI:
         async def get_insights_summary():
             """Get summary statistics of current insights."""
             try:
-                insights = self._load_latest_insights()
+                # Use repository if available (Phase 3)
+                if self.insights_repository:
+                    # Get counts by severity from repository
+                    severity_counts_enum = await self.insights_repository.count_by_severity()
+                    severity_counts = {sev.value: count for sev, count in severity_counts_enum.items()}
 
-                severity_counts = {}
-                component_counts = {}
+                    # Get all insights to count by component
+                    all_insights = await self.insights_repository.get_all()
+                    component_counts = {}
+                    for insight in all_insights:
+                        comp = insight.component
+                        component_counts[comp] = component_counts.get(comp, 0) + 1
 
-                for insight in insights:
-                    # Count by severity
-                    sev = insight["severity"]
-                    severity_counts[sev] = severity_counts.get(sev, 0) + 1
+                    total = len(all_insights)
+                else:
+                    # Fallback to old method
+                    insights = self._load_latest_insights()
 
-                    # Count by component
-                    comp = insight["component"]
-                    component_counts[comp] = component_counts.get(comp, 0) + 1
+                    severity_counts = {}
+                    component_counts = {}
+
+                    for insight in insights:
+                        # Count by severity
+                        sev = insight["severity"]
+                        severity_counts[sev] = severity_counts.get(sev, 0) + 1
+
+                        # Count by component
+                        comp = insight["component"]
+                        component_counts[comp] = component_counts.get(comp, 0) + 1
+
+                    total = len(insights)
 
                 return {
-                    "total_insights": len(insights),
+                    "total_insights": total,
                     "by_severity": severity_counts,
                     "by_component": component_counts,
                     "timestamp": datetime.now().isoformat(),
@@ -826,6 +876,41 @@ class BrendanInsightsAPI:
             except Exception as e:
                 logger.error(f"Error generating annotations: {e}")
                 return []
+
+    @staticmethod
+    def _insight_to_dict(insight) -> Dict[str, Any]:
+        """
+        Convert PerformanceInsight entity to dictionary for API responses.
+
+        Args:
+            insight: PerformanceInsight entity
+
+        Returns:
+            Dictionary representation compatible with existing API format
+        """
+        from src.domain.performance.entities.performance_insight import PerformanceInsight
+
+        if isinstance(insight, PerformanceInsight):
+            return {
+                "title": insight.title,
+                "description": insight.description,
+                "component": insight.component,
+                "severity": insight.severity.value,
+                "timestamp": insight.timestamp.isoformat(),
+                "recommendations": insight.recommendations,
+                "metrics": insight.metrics,
+                "root_cause": insight.root_cause or "See analysis for details",
+                "observation": insight.description,
+                "immediate_action": (
+                    insight.recommendations[0] if insight.recommendations else "Review and investigate"
+                ),
+                "confidence": 95.0,
+                "methodology": insight.root_cause or "use_method",
+                "evidence": {metric: "See report" for metric in insight.metrics},
+            }
+        else:
+            # Already a dict (from old _load_latest_insights)
+            return insight
 
     def _load_latest_insights(self) -> List[Dict[str, Any]]:
         """
