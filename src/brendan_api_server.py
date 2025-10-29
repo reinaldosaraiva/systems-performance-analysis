@@ -412,21 +412,22 @@ class BrendanInsightsAPI:
                 logger.error(f"Error generating summary: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
 
-        # TODO: Temporarily disabled during refactoring - will be re-enabled in Phase 3
-        # @self.app.get("/api/insights/llm")
-        # async def get_llm_insights():
-        #     """
-        #     Run LLM-powered analysis and return insights.
-        #
-        #     This endpoint executes real-time analysis using MiniMax-M2 LLM
-        #     via Ollama. May take 30-60 seconds to complete.
-        #     """
-        #     logger.warning("LLM endpoint temporarily disabled during refactoring")
-        #     return {
-        #         "status": "disabled",
-        #         "message": "LLM endpoint temporarily disabled during DDD refactoring. Will be re-enabled in Phase 3.",
-        #         "timestamp": datetime.now().isoformat(),
-        #     }
+        @self.app.get("/api/insights/llm")
+        async def get_llm_insights():
+            """
+            LLM endpoint stub during refactoring.
+
+            This endpoint is temporarily disabled while we refactor to DDD architecture.
+            Will be re-enabled in Phase 3 with proper repository and service layers.
+            """
+            logger.warning("LLM endpoint temporarily disabled during refactoring")
+            return {
+                "status": "disabled",
+                "message": "LLM endpoint temporarily disabled during DDD refactoring. Will be re-enabled in Phase 3 with new infrastructure layer.",
+                "timestamp": datetime.now().isoformat(),
+                "total": 0,
+                "insights": []
+            }
 
         @self.app.get("/dashboard/llm")
         async def llm_dashboard():

@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}LLM-Powered Analysis - Brendan Gregg Agent{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .header h1 {
+        color: white;
+        font-size: 24px;
+        margin-bottom: 5px;
+    }
+
+    .header .subtitle {
+        color: rgba(255,255,255,0.8);
+        font-size: 14px;
+    }
+
+    .stat-value {
+        font-size: 36px;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    .stat-label {
+        font-size: 12px;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .insight-card {
+        background: #1a1a1a;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-left: 4px solid #667eea;
+    }
+
+    .insight-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .insight-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #fff;
+    }
+
+    .section {
+        margin-bottom: 15px;
+    }
+
+    .section-title {
+        font-size: 12px;
+        color: #999;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+
+    .section-content {
+        color: #d8d9da;
+        line-height: 1.6;
+    }
+
+    .action-box {
+        background: rgba(102, 126, 234, 0.1);
+        border-left: 3px solid #667eea;
+        padding: 12px;
+        margin-top: 10px;
+        border-radius: 4px;
+    }
+
+    .steps-list {
+        list-style: none;
+        counter-reset: step-counter;
+    }
+
+    .steps-list li {
+        counter-increment: step-counter;
+        padding: 8px 0;
+        padding-left: 30px;
+        position: relative;
+    }
+
+    .steps-list li:before {
+        content: counter(step-counter);
+        position: absolute;
+        left: 0;
+        background: #667eea;
+        color: white;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: bold;
+    }
+
+    .spinner {
+        border: 3px solid #333;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>🤖 LLM-Powered Performance Analysis</h1>
+    <div class="subtitle">Intelligent insights by MiniMax-M2 (230B parameters)</div>
+</div>
+
+<div class="stats-grid" id="stats">
+    <div class="stat-card" style="border-left: 4px solid #667eea;">
+        <div class="stat-value" id="total">-</div>
+        <div class="stat-label">Total Insights</div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid #dc143c;">
+        <div class="stat-value" id="critical">-</div>
+        <div class="stat-label">Critical</div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid #ff8c00;">
+        <div class="stat-value" id="high">-</div>
+        <div class="stat-label">High</div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid #90ee90;">
+        <div class="stat-value" id="status">⏳</div>
+        <div class="stat-label">Status</div>
+    </div>
+</div>
+
+<div id="content" class="loading">
+    <div class="spinner"></div>
+    <div>Running LLM analysis...</div>
+    <div style="font-size: 12px; margin-top: 10px;">This may take 30-60 seconds</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadLLMInsights() {
+    try {
+        const response = await fetch('/api/insights/llm');
+        const data = await response.json();
+
+        // Check if endpoint is disabled (during refactoring)
+        if (data.status === 'disabled' || !data.insights) {
+            document.getElementById('status').textContent = '⏸️';
+            document.getElementById('content').innerHTML = `
+                <div style="background: rgba(255, 193, 7, 0.1); border-left: 4px solid #ffc107; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #ffc107; margin-bottom: 10px;">⚠️ LLM Endpoint Temporarily Disabled</h3>
+                    <p style="color: #d8d9da; line-height: 1.6; margin-bottom: 10px;">
+                        This endpoint is being refactored to use the new DDD architecture.
+                    </p>
+                    <p style="color: #999; font-size: 14px;">
+                        <strong>Status:</strong> Will be re-enabled in Phase 3 of the refactoring<br>
+                        <strong>Message:</strong> ${data.message || 'Endpoint disabled during refactoring'}<br>
+                        <strong>Timeline:</strong> Expected to be available after Settings and Repository patterns are implemented
+                    </p>
+                </div>
+            `;
+            return;
+        }
+
+        // Update stats
+        document.getElementById('total').textContent = data.total || 0;
+        document.getElementById('status').textContent = '✓';
+
+        let critical = 0, high = 0;
+        if (data.insights && Array.isArray(data.insights)) {
+            data.insights.forEach(i => {
+                if (i.severity === 'CRITICAL') critical++;
+                if (i.severity === 'HIGH') high++;
+            });
+        }
+
+        document.getElementById('critical').textContent = critical;
+        document.getElementById('high').textContent = high;
+
+        // Render insights
+        let html = '';
+        if (data.insights && Array.isArray(data.insights)) {
+            data.insights.forEach(insight => {
+            const severityClass = insight.severity.toLowerCase();
+
+            html += `
+            <div class="insight-card">
+                <div class="insight-header">
+                    <div class="insight-title">${insight.title}</div>
+                    <span class="severity-badge ${severityClass}">${insight.severity}</span>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">📊 Observation</div>
+                    <div class="section-content">${insight.observation}</div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">🎯 Root Cause</div>
+                    <div class="section-content">${insight.root_cause}</div>
+                </div>
+
+                <div class="action-box">
+                    <div class="section-title">⚡ Immediate Action</div>
+                    <div class="section-content">${insight.immediate_action}</div>
+                </div>
+
+                ${insight.investigation_steps && insight.investigation_steps.length > 0 ? `
+                <div class="section">
+                    <div class="section-title">🔍 Investigation Steps</div>
+                    <ul class="steps-list">
+                        ${insight.investigation_steps.map(step => `<li>${step}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                <div class="section">
+                    <div class="section-title">💡 Long-term Fix</div>
+                    <div class="section-content">${insight.long_term_fix}</div>
+                </div>
+
+                <div style="margin-top: 10px; font-size: 11px; color: #666;">
+                    Component: ${insight.component} | Confidence: ${insight.confidence.toFixed(1)}%
+                </div>
+            </div>
+            `;
+            });
+
+            document.getElementById('content').innerHTML = html;
+        } else {
+            document.getElementById('content').innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <p>No insights available at the moment.</p>
+                </div>
+            `;
+        }
+
+    } catch (error) {
+        console.error('Error loading LLM insights:', error);
+        document.getElementById('status').textContent = '❌';
+        document.getElementById('content').innerHTML = `
+            <div class="error">
+                ❌ Error: ${error.message}<br>
+                <small>The LLM endpoint is temporarily disabled during refactoring. This is expected.</small>
+            </div>
+        `;
+    }
+}
+
+// Load immediately
+loadLLMInsights();
+
+// Auto-refresh every 5 minutes (LLM analysis is slow)
+setInterval(loadLLMInsights, 300000);
+</script>
+{% endblock %}

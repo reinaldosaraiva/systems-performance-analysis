@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Brendan Gregg Agent Analysis{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .insights-table {
+        background: #1a1a1a;
+        border-radius: 8px;
+        padding: 20px;
+        border: 1px solid #333;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th {
+        text-align: left;
+        padding: 12px;
+        border-bottom: 2px solid #333;
+        color: #999;
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    td {
+        padding: 12px;
+        border-bottom: 1px solid #222;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card" style="border-left: 4px solid #1f77b4;">
+        <div class="stat-value" id="total-insights">-</div>
+        <div class="stat-label">Total Insights</div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid #dc143c;">
+        <div class="stat-value" id="critical-count">-</div>
+        <div class="stat-label">Critical Issues</div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid #ff8c00;">
+        <div class="stat-value" id="high-count">-</div>
+        <div class="stat-label">High Severity</div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid #228b22;">
+        <div class="stat-value" id="api-status">✓</div>
+        <div class="stat-label">API Status</div>
+    </div>
+</div>
+
+<div class="insights-table">
+    <h2>🔍 Latest Insights</h2>
+    <div id="table-content" class="loading">Loading analysis...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadAnalysis() {
+    try {
+        // Load summary
+        const summaryResp = await fetch('/api/insights/summary');
+        const summary = await summaryResp.json();
+
+        document.getElementById('total-insights').textContent = summary.total_insights || 0;
+        document.getElementById('critical-count').textContent = summary.by_severity.CRITICAL || 0;
+        document.getElementById('high-count').textContent = summary.by_severity.HIGH || 0;
+
+        // Load insights
+        const insightsResp = await fetch('/api/insights?limit=10');
+        const insightsData = await insightsResp.json();
+
+        if (insightsData.insights && insightsData.insights.length > 0) {
+            let tableHTML = '<table><thead><tr>';
+            tableHTML += '<th>Severity</th>';
+            tableHTML += '<th>Component</th>';
+            tableHTML += '<th>Issue</th>';
+            tableHTML += '<th>Analysis</th>';
+            tableHTML += '</tr></thead><tbody>';
+
+            insightsData.insights.forEach(insight => {
+                const severityClass = (insight.severity || 'low').toLowerCase();
+
+                tableHTML += '<tr>';
+                tableHTML += `<td><span class="severity-badge ${severityClass}">${insight.severity || 'UNKNOWN'}</span></td>`;
+                tableHTML += `<td>${insight.component || 'N/A'}</td>`;
+                tableHTML += `<td><strong>${insight.title || 'No title'}</strong></td>`;
+                tableHTML += `<td>${insight.observation || insight.root_cause || 'No details'}</td>`;
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += '</tbody></table>';
+            document.getElementById('table-content').innerHTML = tableHTML;
+        } else {
+            document.getElementById('table-content').innerHTML = '<p class="loading">No insights detected. System is healthy! ✓</p>';
+        }
+
+    } catch (error) {
+        console.error('Error loading analysis:', error);
+        document.getElementById('table-content').innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+    }
+}
+
+// Load immediately and refresh every 30 seconds
+loadAnalysis();
+setInterval(loadAnalysis, 30000);
+</script>
+{% endblock %}
