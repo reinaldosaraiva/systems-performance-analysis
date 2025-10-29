@@ -8,6 +8,10 @@ from .get_insights import (
     GetInsightsSummaryUseCase,
     GetCriticalInsightsUseCase,
 )
+from .get_llm_insights import (
+    GetLLMInsightsUseCase,
+    AnalyzeBottleneckUseCase,
+)
 
 __all__ = [
     "GetAllInsightsUseCase",
@@ -16,4 +20,6 @@ __all__ = [
     "GetInsightsByComponentUseCase",
     "GetInsightsSummaryUseCase",
     "GetCriticalInsightsUseCase",
+    "GetLLMInsightsUseCase",
+    "AnalyzeBottleneckUseCase",
 ]

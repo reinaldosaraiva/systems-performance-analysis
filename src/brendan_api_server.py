@@ -340,19 +340,70 @@ class BrendanInsightsAPI:
         @self.app.get("/api/insights/llm")
         async def get_llm_insights():
             """
-            LLM endpoint stub during refactoring.
+            Get AI-powered performance insights using LLM.
 
-            This endpoint is temporarily disabled while we refactor to DDD architecture.
-            Will be re-enabled in Phase 3 with proper repository and service layers.
+            This endpoint uses the Ollama LLM to generate intelligent insights
+            based on Brendan Gregg's methodology.
+
+            Returns:
+                JSON with AI-generated insights
             """
-            logger.warning("LLM endpoint temporarily disabled during refactoring")
-            return {
-                "status": "disabled",
-                "message": "LLM endpoint temporarily disabled during DDD refactoring. Will be re-enabled in Phase 3 with new infrastructure layer.",
-                "timestamp": datetime.now().isoformat(),
-                "total": 0,
-                "insights": []
-            }
+            try:
+                # Initialize LLM client with settings
+                from src.infrastructure.ai.ollama_llm_client import OllamaLLMClient
+                from src.application.use_cases.performance import GetLLMInsightsUseCase
+
+                if self.settings:
+                    llm_client = OllamaLLMClient(
+                        base_url=self.settings.ollama_url,
+                        model=self.settings.ollama_model,
+                        temperature=self.settings.ollama_temperature,
+                    )
+                else:
+                    # Fallback configuration
+                    llm_client = OllamaLLMClient(
+                        base_url="http://localhost:11434/v1",
+                        model="minimax-m2:cloud",
+                        temperature=0.7,
+                    )
+
+                # Execute use case
+                use_case = GetLLMInsightsUseCase(llm_client)
+                insights = await use_case.execute()
+
+                # Convert to dict format
+                insights_data = []
+                for insight in insights:
+                    insights_data.append({
+                        "title": insight.title,
+                        "description": insight.description,
+                        "component": insight.component,
+                        "severity": insight.severity.value,
+                        "timestamp": insight.timestamp.isoformat(),
+                        "recommendations": insight.recommendations,
+                        "metrics": insight.metrics,
+                        "root_cause": insight.root_cause or "AI analysis",
+                        "confidence": 85.0,  # AI confidence level
+                    })
+
+                return {
+                    "status": "success",
+                    "message": "LLM insights generated successfully",
+                    "timestamp": datetime.now().isoformat(),
+                    "total": len(insights_data),
+                    "insights": insights_data,
+                    "model": llm_client.model,
+                }
+
+            except Exception as e:
+                logger.error(f"Error generating LLM insights: {e}")
+                return {
+                    "status": "error",
+                    "message": f"Failed to generate LLM insights: {str(e)}",
+                    "timestamp": datetime.now().isoformat(),
+                    "total": 0,
+                    "insights": [],
+                }
 
         @self.app.get("/dashboard/llm")
         async def llm_dashboard():

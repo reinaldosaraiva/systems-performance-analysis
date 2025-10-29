@@ -1,10 +1,14 @@
 """LLM client port interface."""
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
-from ...domain.performance.entities.system_metrics import SystemMetrics
-from ...domain.performance.entities.performance_insight import PerformanceInsight
+try:
+    from src.domain.performance.entities.system_metrics import SystemMetrics
+    from src.domain.performance.entities.performance_insight import PerformanceInsight
+except ImportError:
+    from domain.performance.entities.system_metrics import SystemMetrics
+    from domain.performance.entities.performance_insight import PerformanceInsight
 
 
 class LLMClientPort(ABC):
@@ -12,7 +16,7 @@ class LLMClientPort(ABC):
 
     @abstractmethod
     async def generate_insights(
-        self, metrics: SystemMetrics
+        self, metrics: Optional[SystemMetrics]
     ) -> List[PerformanceInsight]:
         """Generate performance insights using LLM."""
         pass
