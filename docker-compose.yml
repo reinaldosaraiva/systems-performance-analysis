@@ -125,6 +125,8 @@ services:
     container_name: brendan-api
     ports:
       - "8080:8080"
+    env_file:
+      - .env.docker
     environment:
       - PROMETHEUS_URL=http://prometheus-local:9090
       - OLLAMA_URL=http://host.docker.internal:11434/v1

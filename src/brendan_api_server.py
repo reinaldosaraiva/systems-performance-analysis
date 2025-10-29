@@ -49,32 +49,48 @@ class BrendanInsightsAPI:
 
     def __init__(
         self,
-        reports_dir: Path = Path("reports"),
-        prometheus_url: str = "http://177.93.132.48:9090"
+        reports_dir: Optional[Path] = None,
+        prometheus_url: Optional[str] = None
     ):
         """
         Initialize the API server.
 
         Args:
-            reports_dir: Directory containing analysis reports
-            prometheus_url: URL of Prometheus server for LLM analysis
+            reports_dir: Directory containing analysis reports (uses settings if not provided)
+            prometheus_url: URL of Prometheus server (uses settings if not provided)
         """
-        self.reports_dir = reports_dir
-        self.prometheus_url = prometheus_url
+        # Load settings
+        try:
+            from src.infrastructure.config import get_settings
+            self.settings = get_settings()
+            logger.info("✅ Settings loaded from .env")
+        except ImportError:
+            logger.warning("⚠️ Could not load settings, using defaults")
+            self.settings = None
+
+        # Use settings or fall back to parameters/defaults
+        if self.settings:
+            self.reports_dir = reports_dir or self.settings.reports_dir
+            self.prometheus_url = prometheus_url or self.settings.prometheus_url
+        else:
+            self.reports_dir = reports_dir or Path("reports")
+            self.prometheus_url = prometheus_url or "http://177.93.132.48:9090"
+
+        # Initialize FastAPI with settings
         self.app = FastAPI(
-            title="Brendan Gregg Agent API",
+            title=self.settings.api_title if self.settings else "Brendan Gregg Agent API",
             description="API for accessing Systems Performance analysis insights",
-            version="1.0.0",
+            version=self.settings.api_version if self.settings else "1.0.0",
         )
 
-        # Enable CORS for Grafana
-        self.app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+        # Enable CORS for Grafana (use settings if available)
+        cors_config = {
+            "allow_origins": self.settings.cors_origins if self.settings else ["*"],
+            "allow_credentials": self.settings.cors_allow_credentials if self.settings else True,
+            "allow_methods": self.settings.cors_allow_methods if self.settings else ["*"],
+            "allow_headers": self.settings.cors_allow_headers if self.settings else ["*"],
+        }
+        self.app.add_middleware(CORSMiddleware, **cors_config)
 
         self._setup_routes()
 
@@ -952,15 +968,34 @@ def main():
 
     args = parser.parse_args()
 
-    # Configure logging
+    # Try to load settings
+    try:
+        from src.infrastructure.config import get_settings
+        settings = get_settings()
+        logger.info("✅ Using settings from .env")
+
+        # Use settings but allow CLI args to override
+        host = args.host
+        port = args.port
+        log_level = args.log_level
+        reports_dir = args.reports_dir
+    except ImportError:
+        logger.warning("⚠️ Settings module not available, using CLI args")
+        settings = None
+        host = args.host
+        port = args.port
+        log_level = args.log_level
+        reports_dir = args.reports_dir
+
+    # Configure logging (use settings if available)
     logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        level=getattr(logging, log_level),
+        format=settings.log_format if settings else "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     # Create and run API server
-    api = BrendanInsightsAPI(reports_dir=args.reports_dir)
-    api.run(host=args.host, port=args.port)
+    api = BrendanInsightsAPI(reports_dir=reports_dir)
+    api.run(host=host, port=port)
 
 
 if __name__ == "__main__":
