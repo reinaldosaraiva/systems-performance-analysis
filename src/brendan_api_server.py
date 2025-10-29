@@ -28,6 +28,31 @@ import uvicorn
 logger = logging.getLogger(__name__)
 
 
+# Global API instance for dependency injection
+_global_api_instance: Optional["BrendanInsightsAPI"] = None
+
+
+def get_global_api() -> Optional["BrendanInsightsAPI"]:
+    """
+    Get the global API instance for dependency injection.
+
+    Returns:
+        API instance or None if not yet initialized
+    """
+    return _global_api_instance
+
+
+def set_global_api(api: "BrendanInsightsAPI") -> None:
+    """
+    Set the global API instance.
+
+    Args:
+        api: API instance to set
+    """
+    global _global_api_instance
+    _global_api_instance = api
+
+
 class GrafanaQueryRequest(BaseModel):
     """Grafana query request format."""
 
@@ -103,6 +128,10 @@ class BrendanInsightsAPI:
 
         self._setup_routes()
 
+        # Set global instance for dependency injection AFTER routes setup (Phase 4)
+        set_global_api(self)
+        logger.info("✅ Global API instance set for dependency injection")
+
     def _setup_routes(self):
         """Setup API routes."""
 
@@ -113,6 +142,17 @@ class BrendanInsightsAPI:
             logger.info("✅ New template-based dashboard routes loaded")
         except ImportError as e:
             logger.warning(f"⚠️ Could not load new dashboard routes: {e}")
+
+        # Include clean insights routes (DDD - Phase 4)
+        try:
+            from src.presentation.api.routes import insights as insights_module
+            # Inject repository into the module before including router
+            if self.insights_repository:
+                insights_module._repository_instance = self.insights_repository
+            self.app.include_router(insights_module.router)
+            logger.info("✅ Clean DDD insights routes loaded")
+        except ImportError as e:
+            logger.warning(f"⚠️ Could not load insights routes: {e}")
 
         @self.app.get("/")
         async def root():
