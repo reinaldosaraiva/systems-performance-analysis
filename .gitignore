@@ -178,6 +178,7 @@ cython_debug/
 
 # Project-specific
 reports/
+consolidated-reports-temp/
 *.html
 *.md
 !docs/*.md
