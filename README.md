@@ -1,13 +1,13 @@
 # 🚀 System Performance Analysis - USE Method Dashboard
 
-![Status](https://img.shields.io/badge/status-production%20ready-brightgreen)
-![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Ollama](https://img.shields.io/badge/ollama-required-orange)
-
-A comprehensive system performance analysis tool based on **Brendan Gregg's USE Method** with **AI-powered insights** and **real-time monitoring**.
+[![Status](https://img.shields.io/badge/status-production%20ready-brightgreen)](https://github.com)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Ollama](https://img.shields.io/badge/ollama-required-orange)](https://ollama.com/)
 
 > ✅ **FULLY IMPLEMENTED** - Production-ready with complete AI insights integration
+
+A comprehensive system performance analysis tool based on **Brendan Gregg's USE Method** with **AI-powered insights** and **real-time monitoring**.
 
 ## ✨ Features
 
