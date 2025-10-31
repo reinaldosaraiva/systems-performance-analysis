@@ -178,12 +178,19 @@ cython_debug/
 
 # Project-specific
 reports/
-*.html
-*.md
-!docs/*.md
+consolidated-reports-temp/
 systems-performance.log
 temp/
 tmp/
+test_parallel_*.py
+deploy_with_real_data.sh
+
+# Data directories (Docker volumes)
+data/prometheus/
+data/grafana/
+data/redis/
+data/victoria/
+data/alertmanager/
 
 # OS
 .DS_Store
@@ -203,5 +210,3 @@ Thumbs.db
 # Performance data
 *.prof
 *.profile
-CLAUDE.md
-CLAUDE_CONTEXT.md

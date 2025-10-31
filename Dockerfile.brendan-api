@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir uv
 COPY . .
 
 # Install dependencies using UV
-RUN uv sync --no-dev || uv pip install fastapi uvicorn requests prometheus-client psutil rich jinja2 pydantic autogen-agentchat autogen-ext autogen-core
+RUN uv sync --no-dev || uv pip install fastapi uvicorn requests prometheus-client psutil rich jinja2 pydantic pydantic-settings autogen-agentchat autogen-ext autogen-core
 
 # Expose API port
 EXPOSE 8080
